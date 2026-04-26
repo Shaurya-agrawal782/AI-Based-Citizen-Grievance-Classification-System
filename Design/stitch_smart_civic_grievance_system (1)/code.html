@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Citizen Landing Page - CivicTrust AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#1e3a8a",
+                        "inverse-surface": "#2d3133",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-primary-fixed": "#00164e",
+                        "background": "#f7f9fb",
+                        "inverse-primary": "#b6c4ff",
+                        "on-primary-container": "#90a8ff",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "outline-variant": "#c5c5d3",
+                        "tertiary": "#3e2400",
+                        "on-secondary-fixed": "#002204",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-container": "#eceef0",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "primary": "#00236f",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#ef9900",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary-container": "#217128",
+                        "error-container": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "secondary-container": "#a0f399",
+                        "on-background": "#191c1e",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#e0e3e5",
+                        "surface": "#f7f9fb",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#ffddb8",
+                        "on-secondary-fixed-variant": "#005312",
+                        "on-surface": "#191c1e",
+                        "surface-dim": "#d8dadc",
+                        "secondary-fixed-dim": "#88d982",
+                        "on-surface-variant": "#444651",
+                        "tertiary-container": "#5c3800",
+                        "outline": "#757682",
+                        "surface-tint": "#4059aa",
+                        "surface-bright": "#f7f9fb",
+                        "secondary": "#1b6d24",
+                        "secondary-fixed": "#a3f69c",
+                        "on-tertiary-fixed": "#2a1700",
+                        "surface-container-highest": "#e0e3e5",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-primary-fixed-variant": "#264191",
+                        "surface-container-lowest": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Public Sans", "sans-serif"],
+                        "body": ["Public Sans", "sans-serif"],
+                        "label": ["Public Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .ai-gradient { background: linear-gradient(135deg, #1E3A8A 0%, #0EA5A4 100%); }
+        .ai-glow { box-shadow: 0 0 20px rgba(14, 165, 164, 0.3); }
+        .glass-panel { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col antialiased">
+<!-- TopNavBar -->
+<header class="bg-[#f7f9fb] dark:bg-slate-900 docked full-width top-0 sticky z-50 flex justify-between items-center w-full px-8 py-4 shadow-[0_24px_48px_-12px_rgba(25,28,30,0.08)]">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+<span class="text-lg font-bold tracking-tighter text-[#00236f] dark:text-white font-['Public_Sans']">Civic Architect Portal</span>
+</div>
+<!-- Navigation Links -->
+<nav class="hidden md:flex gap-8">
+<a class="text-[#00236f] dark:text-blue-300 font-bold border-b-2 border-[#00236f] pb-1 font-['Public_Sans'] tracking-tight leading-relaxed" href="#">Dashboard</a>
+<a class="text-slate-500 dark:text-slate-400 font-medium hover:text-[#00236f] dark:hover:text-blue-200 transition-colors font-['Public_Sans'] tracking-tight leading-relaxed" href="#">Public Records</a>
+<a class="text-slate-500 dark:text-slate-400 font-medium hover:text-[#00236f] dark:hover:text-blue-200 transition-colors font-['Public_Sans'] tracking-tight leading-relaxed" href="#">Resources</a>
+</nav>
+<!-- Search Bar -->
+<div class="hidden md:flex items-center bg-surface-container-highest rounded-full px-4 py-2">
+<span class="material-symbols-outlined text-outline mr-2 text-sm">search</span>
+<input class="bg-transparent border-none outline-none text-sm text-on-surface w-48 font-body" placeholder="Search portal..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-500 dark:text-slate-400 hover:text-[#00236f] dark:hover:text-blue-200 transition-colors active:scale-[0.98] transition-transform duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-slate-500 dark:text-slate-400 hover:text-[#00236f] dark:hover:text-blue-200 transition-colors active:scale-[0.98] transition-transform duration-200">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-variant flex items-center justify-center">
+<img alt="Official Profile Avatar" class="w-full h-full object-cover" data-alt="professional headshot of an executive in a navy blue suit against a neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCy9HElofEPTGKiJWWc4QeZSglJ-221bkqQrzJd65SfmpJZqx7a6-EuzrzljY25-nY9BKTe52kWyiK-WpZrkdKGabhRuCg1p_yMin763PkyN7YW-Wdd1cCEEcDg_RJSEu81rNqQfeT7JjytNKyllZV-_q7Az_5MgAAWuBG6audzsJ5NxhOtaU79Y6uXkY5roPvLeoVrN0S2os77SuIn57cniO6hQsyTvTyP85yyr3BJR-pdAle7AWyMYoCPnFIbw-4RmXFOVcdgGSE"/>
+</div>
+</div>
+</header>
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="relative pt-24 pb-32 px-8 overflow-hidden bg-surface">
+<!-- Background Decoration -->
+<div class="absolute inset-0 z-0 opacity-10 pointer-events-none">
+<img alt="Abstract Architecture" class="w-full h-full object-cover" data-alt="abstract architectural lines of a modern government building with smooth curved concrete and soft ambient light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHezH280S_ubeRGTllvWyZ_gjRf637whLYfETRvcF6TlrGvHhiZxbwjOE-fmXXk9sLoaEtVHorJTHHM124DIfp5X03-0p3i_dTzoLsX9kF1hov-78v4vmBHuJPWSyj48sb544Zyf6TmxBl3BVC0y-9Kj96bcEX4pVNXBR2udnQCPqL_ytc4GyjtMeM41A2MVg-oEqPKZjinGan_kxU7kQSlKrCmESsTSVAfT7D2_EVBzxEqylhVf1bjGrHBpjXJ_4wg-4tDXvC_-g"/>
+</div>
+<div class="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-surface-container-low to-transparent z-0"></div>
+<div class="max-w-7xl mx-auto relative z-10 grid md:grid-cols-12 gap-16 items-center">
+<!-- Left Content -->
+<div class="md:col-span-7 space-y-8">
+<div class="inline-flex items-center gap-2 px-4 py-2 bg-surface-container-lowest rounded-full shadow-[0_24px_48px_-12px_rgba(25,28,30,0.08)]">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-xs font-label font-semibold tracking-widest uppercase text-on-surface-variant">CivicTrust AI Enhanced</span>
+</div>
+<h1 class="text-5xl md:text-6xl font-headline font-black tracking-tighter text-on-surface leading-tight">
+                        Official Citizen <br/> Grievance Portal
+                    </h1>
+<p class="text-xl font-body text-on-surface-variant leading-relaxed max-w-2xl">
+                        A modern, AI-assisted platform for citizens to efficiently report issues, track resolutions, and engage with local governance. Secure, transparent, and responsive.
+                    </p>
+<div class="flex flex-wrap gap-4 pt-4">
+<button class="ai-gradient text-on-primary px-8 py-4 rounded-xl font-label font-semibold shadow-[0_12px_24px_-8px_rgba(14,165,164,0.4)] hover:shadow-[0_16px_32px_-8px_rgba(14,165,164,0.5)] transition-all flex items-center gap-2">
+<span>File a New Grievance</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+<button class="bg-transparent border border-outline-variant outline outline-1 outline-outline-variant/15 text-primary px-8 py-4 rounded-xl font-label font-semibold hover:bg-surface-container-low transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">manage_search</span>
+<span>Track Your Complaint</span>
+</button>
+</div>
+<div class="pt-8 flex items-center gap-6 text-sm text-on-surface-variant font-body">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span>24/7 Processing</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span>Secure &amp; Confidential</span>
+</div>
+</div>
+</div>
+<!-- Right Feature Panel (Asymmetric) -->
+<div class="md:col-span-5 relative">
+<div class="bg-surface-container-lowest rounded-2xl p-8 shadow-[0_24px_48px_-12px_rgba(25,28,30,0.08)] relative z-10">
+<div class="flex items-start justify-between mb-8">
+<div>
+<h3 class="text-sm font-headline font-semibold text-on-surface uppercase tracking-wider">AI Insight Panel</h3>
+<p class="text-xs text-on-surface-variant mt-1">Live Portal Analytics</p>
+</div>
+<span class="material-symbols-outlined text-primary ai-glow rounded-full p-1">psychology</span>
+</div>
+<div class="space-y-6">
+<!-- Stat 1 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">bolt</span>
+</div>
+<div>
+<p class="text-sm font-body font-semibold text-on-surface">Avg. Classification Time</p>
+<p class="text-xs text-on-surface-variant">AI-Assisted Routing</p>
+</div>
+</div>
+<span class="text-lg font-headline font-bold text-primary">1.2s</span>
+</div>
+<!-- Stat 2 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">task_alt</span>
+</div>
+<div>
+<p class="text-sm font-body font-semibold text-on-surface">Resolution Rate (30d)</p>
+<p class="text-xs text-on-surface-variant">Departmental Action</p>
+</div>
+</div>
+<span class="text-lg font-headline font-bold text-secondary">94%</span>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant/15 text-center">
+<a class="text-sm font-label font-semibold text-primary hover:underline" href="#">View Public Transparency Report</a>
+</div>
+</div>
+</div>
+<!-- Decorative element behind panel -->
+<div class="absolute -bottom-6 -right-6 w-full h-full bg-surface-container-low rounded-2xl z-0"></div>
+</div>
+</div>
+</section>
+<!-- How It Works Section -->
+<section class="py-24 px-8 bg-surface-container-low">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-16 max-w-3xl mx-auto">
+<h2 class="text-sm font-headline font-semibold text-primary uppercase tracking-wider mb-4">Process Overview</h2>
+<h3 class="text-3xl md:text-4xl font-headline font-bold text-on-surface tracking-tight">How CivicTrust AI Works</h3>
+<p class="mt-4 text-lg text-on-surface-variant font-body">Our streamlined process ensures your grievance reaches the right department immediately, reducing wait times and increasing transparency.</p>
+</div>
+<div class="grid md:grid-cols-4 gap-8 relative">
+<!-- Connecting Line (Desktop) -->
+<div class="hidden md:block absolute top-12 left-[10%] right-[10%] h-0.5 bg-outline-variant/20 z-0"></div>
+<!-- Step 1 -->
+<div class="relative z-10 flex flex-col items-center text-center">
+<div class="w-24 h-24 rounded-full bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(25,28,30,0.08)] flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'FILL' 1;">edit_document</span>
+</div>
+<h4 class="text-xl font-headline font-bold text-on-surface mb-2">1. Submit</h4>
+<p class="text-sm text-on-surface-variant font-body">Provide details of your grievance through our secure, guided digital form.</p>
+</div>
+<!-- Step 2 -->
+<div class="relative z-10 flex flex-col items-center text-center">
+<div class="w-24 h-24 rounded-full bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(25,28,30,0.08)] flex items-center justify-center mb-6 relative group">
+<div class="absolute inset-0 rounded-full ai-gradient opacity-20 group-hover:opacity-40 transition-opacity"></div>
+<span class="material-symbols-outlined text-4xl text-[#0EA5A4]">auto_awesome</span>
+</div>
+<h4 class="text-xl font-headline font-bold text-on-surface mb-2">2. AI Classification</h4>
+<p class="text-sm text-on-surface-variant font-body">Our CivicTrust AI instantly analyzes, categorizes, and prioritizes your submission.</p>
+</div>
+<!-- Step 3 -->
+<div class="relative z-10 flex flex-col items-center text-center">
+<div class="w-24 h-24 rounded-full bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(25,28,30,0.08)] flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-4xl text-primary">account_tree</span>
+</div>
+<h4 class="text-xl font-headline font-bold text-on-surface mb-2">3. Routing</h4>
+<p class="text-sm text-on-surface-variant font-body">Automatically directed to the exact departmental desk responsible for resolution.</p>
+</div>
+<!-- Step 4 -->
+<div class="relative z-10 flex flex-col items-center text-center">
+<div class="w-24 h-24 rounded-full bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(25,28,30,0.08)] flex items-center justify-center mb-6 border-2 border-secondary">
+<span class="material-symbols-outlined text-4xl text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h4 class="text-xl font-headline font-bold text-on-surface mb-2">4. Resolution</h4>
+<p class="text-sm text-on-surface-variant font-body">Track progress live until official closure and confirmation is provided.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Space -->
+<footer class="bg-surface-container-low py-8 px-8 border-t border-outline-variant/15 text-center">
+<p class="text-sm text-on-surface-variant font-body">© 2024 Civic Architect Portal. Secure Government Infrastructure.</p>
+</footer>
+</body></html>
