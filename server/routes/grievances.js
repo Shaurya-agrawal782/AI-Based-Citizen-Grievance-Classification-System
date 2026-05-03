@@ -2,6 +2,7 @@ const express = require('express');
 const Grievance = require('../models/Grievance');
 const { auth, requireRole } = require('../middleware/auth');
 const { analyzeGrievance } = require('../utils/geminiAI');
+const { createAuditEntry, createCaseHistoryEntry, appendAuditLog, appendCaseHistory } = require('../utils/auditLogger');
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const router = express.Router();
 router.get('/stats', auth, async (req, res) => {
   try {
     const query = req.user.role === 'citizen' ? { citizen: req.userId } : {};
-    
+
     const [total, submitted, inReview, inProgress, resolved, escalated, highPriority] = await Promise.all([
       Grievance.countDocuments(query),
       Grievance.countDocuments({ ...query, status: 'submitted' }),
@@ -20,9 +21,9 @@ router.get('/stats', auth, async (req, res) => {
       Grievance.countDocuments({ ...query, priority: 'high' })
     ]);
 
-    const aiClassified = await Grievance.countDocuments({ 
-      ...query, 
-      'aiClassification.suggestedDepartment': { $ne: null } 
+    const aiClassified = await Grievance.countDocuments({
+      ...query,
+      'aiClassification.suggestedDepartment': { $ne: null }
     });
 
     // Category distribution
@@ -41,7 +42,7 @@ router.get('/stats', auth, async (req, res) => {
     // Monthly trends (last 6 months)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    
+
     const monthlyTrends = await Grievance.aggregate([
       { $match: { ...query, createdAt: { $gte: sixMonthsAgo } } },
       {
@@ -94,7 +95,7 @@ router.get('/stats', auth, async (req, res) => {
 // Create new grievance
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, description, category, location, dateOfIncident, citizenPhone, coordinates } = req.body;
+    const { title, description, category, location, dateOfIncident, citizenPhone, coordinates, privacyConsent, privacyConsentAt } = req.body;
 
     // Advanced AI Analysis (Gemini)
     const aiResult = await analyzeGrievance(title, description);
@@ -108,7 +109,6 @@ router.post('/', auth, async (req, res) => {
       'Public Safety': 'Municipal Safety'
     };
 
-    // Use AI suggested department if category not provided or if confidence is very high
     const finalDepartment = aiResult.suggestedDepartment;
     const finalCategory = category || Object.keys(categoryDeptMap).find(
       k => categoryDeptMap[k] === aiResult.suggestedDepartment
@@ -129,8 +129,43 @@ router.post('/', auth, async (req, res) => {
       citizenName: req.user.name,
       citizenEmail: req.user.email,
       citizenPhone: citizenPhone || req.user.phone,
-      aiClassification: aiResult
+      aiClassification: aiResult,
+      privacyConsent: privacyConsent || false,
+      privacyConsentAt: privacyConsentAt || null
     });
+
+    // --- AUDIT: Grievance Created ---
+    const citizenActor = { userId: req.userId, name: req.user.name, role: req.user.role };
+    appendAuditLog(grievance, createAuditEntry({
+      action: "GRIEVANCE_CREATED",
+      performedBy: citizenActor,
+      newValue: { status: 'submitted', category: finalCategory, priority: aiResult.priority || 'medium', department: finalDepartment },
+      reason: "Citizen submitted grievance via CivicTrust portal"
+    }));
+
+    // --- AUDIT: AI Classification Applied ---
+    appendAuditLog(grievance, createAuditEntry({
+      action: "AI_CLASSIFICATION_APPLIED",
+      systemGenerated: true,
+      newValue: { department: finalDepartment, confidence: aiResult.confidence, priority: aiResult.priority },
+      reason: "AI intelligence pipeline classified grievance on submission"
+    }));
+
+    // --- Case History: Submitted (citizen visible) ---
+    appendCaseHistory(grievance, createCaseHistoryEntry({
+      status: 'submitted',
+      note: 'Your grievance has been successfully submitted.',
+      actor: { name: 'CivicTrust System', role: 'system' },
+      visibility: 'citizen'
+    }));
+
+    // --- Case History: AI classified (citizen visible) ---
+    appendCaseHistory(grievance, createCaseHistoryEntry({
+      status: 'submitted',
+      note: `AI has classified your complaint as "${finalCategory}" and routed it to "${finalDepartment}".`,
+      actor: { name: 'CivicTrust AI', role: 'system' },
+      visibility: 'citizen'
+    }));
 
     await grievance.save();
 
@@ -144,20 +179,17 @@ router.post('/', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const { status, priority, category, department, page = 1, limit = 20, search } = req.query;
-    
+
     let query = {};
-    
-    // Citizens only see their own grievances
+
     if (req.user.role === 'citizen') {
       query.citizen = req.userId;
     }
-    
-    // Department users see only their department's grievances
+
     if (req.user.role === 'department' && req.user.department) {
       query.department = req.user.department;
     }
 
-    // Filters
     if (status) query.status = status;
     if (priority) query.priority = priority;
     if (category) query.category = category;
@@ -171,7 +203,7 @@ router.get('/', auth, async (req, res) => {
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const [grievances, total] = await Promise.all([
       Grievance.find(query)
         .sort({ createdAt: -1 })
@@ -194,38 +226,54 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Get single grievance
+// Get single grievance (role-filtered audit trail)
 router.get('/:id', auth, async (req, res) => {
   try {
     const grievance = await Grievance.findById(req.params.id)
       .populate('citizen', 'name email phone');
-    
+
     if (!grievance) {
       return res.status(404).json({ error: 'Grievance not found' });
     }
 
-    // Citizens can only view their own
     if (req.user.role === 'citizen' && grievance.citizen._id.toString() !== req.userId.toString()) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // For citizens: filter caseHistory by visibility, exclude raw auditTrail
+    if (req.user.role === 'citizen') {
+      const citizenGrievance = grievance.toObject();
+      citizenGrievance.caseHistory = (citizenGrievance.caseHistory || []).filter(
+        e => e.visibility === 'citizen' || e.visibility === 'public'
+      );
+      delete citizenGrievance.auditTrail; // never expose to citizens
+      return res.json({ grievance: citizenGrievance });
+    }
+
+    // Admins/department see everything
     res.json({ grievance });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Track grievance by tracking ID (public-ish - needs auth but any citizen can track)
-router.get('/track/:trackingId', auth, async (req, res) => {
+// Track grievance by tracking ID (public)
+router.get('/track/:trackingId', async (req, res) => {
   try {
     const grievance = await Grievance.findOne({ trackingId: req.params.trackingId })
-      .select('trackingId title category department priority status timeline createdAt updatedAt');
-    
+      .select('trackingId title category department priority status timeline caseHistory createdAt updatedAt');
+
     if (!grievance) {
       return res.status(404).json({ error: 'No grievance found with this tracking ID' });
     }
 
-    res.json({ grievance });
+    // Only expose public/citizen-visible case history in public tracking
+    const result = grievance.toObject();
+    result.caseHistory = (result.caseHistory || []).filter(
+      e => e.visibility === 'public' || e.visibility === 'citizen'
+    );
+
+    res.json({ grievance: result });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -234,13 +282,14 @@ router.get('/track/:trackingId', auth, async (req, res) => {
 // Update grievance status (admin/department only)
 router.patch('/:id/status', auth, requireRole('admin', 'department'), async (req, res) => {
   try {
-    const { status, note } = req.body;
+    const { status, note, reason } = req.body;
     const grievance = await Grievance.findById(req.params.id);
-    
+
     if (!grievance) {
       return res.status(404).json({ error: 'Grievance not found' });
     }
 
+    const oldStatus = grievance.status;
     grievance.status = status;
     grievance.timeline.push({
       status,
@@ -248,6 +297,27 @@ router.patch('/:id/status', auth, requireRole('admin', 'department'), async (req
       timestamp: new Date(),
       updatedBy: req.userId
     });
+
+    // --- AUDIT: Status Updated ---
+    const actor = { userId: req.userId, name: req.user.name, role: req.user.role };
+    appendAuditLog(grievance, createAuditEntry({
+      action: "STATUS_UPDATED",
+      performedBy: actor,
+      oldValue: { status: oldStatus },
+      newValue: { status },
+      reason: reason || note || `Status updated to ${status} by authorized user`
+    }));
+
+    // --- Case History (citizen-visible for key transitions) ---
+    const citizenVisibleStatuses = ['in-review', 'in-progress', 'resolved', 'closed', 'reopened', 'escalated'];
+    if (citizenVisibleStatuses.includes(status)) {
+      appendCaseHistory(grievance, createCaseHistoryEntry({
+        status,
+        note: note || `Your complaint status has been updated to "${status}".`,
+        actor: { name: req.user.name, role: req.user.role },
+        visibility: 'citizen'
+      }));
+    }
 
     await grievance.save();
     res.json({ grievance });
@@ -261,11 +331,12 @@ router.patch('/:id/assign', auth, requireRole('admin'), async (req, res) => {
   try {
     const { department } = req.body;
     const grievance = await Grievance.findById(req.params.id);
-    
+
     if (!grievance) {
       return res.status(404).json({ error: 'Grievance not found' });
     }
 
+    const oldDepartment = grievance.department;
     grievance.department = department;
     grievance.status = 'in-review';
     grievance.timeline.push({
@@ -274,6 +345,23 @@ router.patch('/:id/assign', auth, requireRole('admin'), async (req, res) => {
       timestamp: new Date(),
       updatedBy: req.userId
     });
+
+    // --- AUDIT: Assigned ---
+    const actor = { userId: req.userId, name: req.user.name, role: req.user.role };
+    appendAuditLog(grievance, createAuditEntry({
+      action: "GRIEVANCE_ASSIGNED",
+      performedBy: actor,
+      oldValue: { department: oldDepartment },
+      newValue: { department, status: 'in-review' },
+      reason: "Assigned for resolution by administrator"
+    }));
+
+    appendCaseHistory(grievance, createCaseHistoryEntry({
+      status: 'in-review',
+      note: `Your complaint has been assigned to the ${department} department and is under review.`,
+      actor: { name: req.user.name, role: req.user.role },
+      visibility: 'citizen'
+    }));
 
     await grievance.save();
     res.json({ grievance });
@@ -287,7 +375,7 @@ router.post('/:id/feedback', auth, async (req, res) => {
   try {
     const { rating, comment } = req.body;
     const grievance = await Grievance.findById(req.params.id);
-    
+
     if (!grievance) {
       return res.status(404).json({ error: 'Grievance not found' });
     }
@@ -302,6 +390,15 @@ router.post('/:id/feedback', auth, async (req, res) => {
       submittedAt: new Date()
     };
 
+    // --- AUDIT: Citizen Feedback ---
+    const actor = { userId: req.userId, name: req.user.name, role: req.user.role };
+    appendAuditLog(grievance, createAuditEntry({
+      action: "CITIZEN_FEEDBACK_RECEIVED",
+      performedBy: actor,
+      newValue: { rating, comment: comment ? '[provided]' : '[none]' },
+      reason: `Citizen provided feedback with rating ${rating}/5`
+    }));
+
     if (rating >= 4) {
       grievance.status = 'closed';
       grievance.timeline.push({
@@ -309,6 +406,18 @@ router.post('/:id/feedback', auth, async (req, res) => {
         note: 'Complaint closed after positive citizen feedback',
         timestamp: new Date()
       });
+      appendAuditLog(grievance, createAuditEntry({
+        action: "GRIEVANCE_CLOSED",
+        performedBy: actor,
+        newValue: { status: 'closed' },
+        reason: "Complaint closed after positive citizen feedback (rating >= 4)"
+      }));
+      appendCaseHistory(grievance, createCaseHistoryEntry({
+        status: 'closed',
+        note: 'Thank you for your feedback! Your complaint has been closed successfully.',
+        actor: { name: 'CivicTrust System', role: 'system' },
+        visibility: 'citizen'
+      }));
     } else if (rating <= 2) {
       grievance.status = 'reopened';
       grievance.timeline.push({
@@ -316,6 +425,18 @@ router.post('/:id/feedback', auth, async (req, res) => {
         note: 'Complaint reopened due to unsatisfactory resolution',
         timestamp: new Date()
       });
+      appendAuditLog(grievance, createAuditEntry({
+        action: "GRIEVANCE_REOPENED",
+        performedBy: actor,
+        newValue: { status: 'reopened' },
+        reason: "Complaint reopened due to unsatisfactory resolution (rating <= 2)"
+      }));
+      appendCaseHistory(grievance, createCaseHistoryEntry({
+        status: 'reopened',
+        note: 'Your complaint has been reopened for further investigation based on your feedback.',
+        actor: { name: 'CivicTrust System', role: 'system' },
+        visibility: 'citizen'
+      }));
     }
 
     await grievance.save();
@@ -330,7 +451,7 @@ router.patch('/:id/escalate', auth, requireRole('admin'), async (req, res) => {
   try {
     const { note } = req.body;
     const grievance = await Grievance.findById(req.params.id);
-    
+
     if (!grievance) {
       return res.status(404).json({ error: 'Grievance not found' });
     }
@@ -344,6 +465,22 @@ router.patch('/:id/escalate', auth, requireRole('admin'), async (req, res) => {
       updatedBy: req.userId
     });
 
+    // --- AUDIT: Escalated ---
+    const actor = { userId: req.userId, name: req.user.name, role: req.user.role };
+    appendAuditLog(grievance, createAuditEntry({
+      action: "GRIEVANCE_ESCALATED",
+      performedBy: actor,
+      newValue: { status: 'escalated', priority: 'high' },
+      reason: note || "Escalated to higher authority for immediate action"
+    }));
+
+    appendCaseHistory(grievance, createCaseHistoryEntry({
+      status: 'escalated',
+      note: 'Your complaint has been escalated to a senior authority for urgent action.',
+      actor: { name: req.user.name, role: req.user.role },
+      visibility: 'citizen'
+    }));
+
     await grievance.save();
     res.json({ grievance });
   } catch (error) {
@@ -356,7 +493,7 @@ router.patch('/:id/reopen', auth, requireRole('admin', 'department'), async (req
   try {
     const { note } = req.body;
     const grievance = await Grievance.findById(req.params.id);
-    
+
     if (!grievance) {
       return res.status(404).json({ error: 'Grievance not found' });
     }
@@ -368,6 +505,22 @@ router.patch('/:id/reopen', auth, requireRole('admin', 'department'), async (req
       timestamp: new Date(),
       updatedBy: req.userId
     });
+
+    // --- AUDIT: Reopened ---
+    const actor = { userId: req.userId, name: req.user.name, role: req.user.role };
+    appendAuditLog(grievance, createAuditEntry({
+      action: "GRIEVANCE_REOPENED",
+      performedBy: actor,
+      newValue: { status: 'reopened' },
+      reason: note || "Manually reopened by authorized user for further investigation"
+    }));
+
+    appendCaseHistory(grievance, createCaseHistoryEntry({
+      status: 'reopened',
+      note: note || 'Your complaint has been reopened for further investigation.',
+      actor: { name: req.user.name, role: req.user.role },
+      visibility: 'citizen'
+    }));
 
     await grievance.save();
     res.json({ grievance });

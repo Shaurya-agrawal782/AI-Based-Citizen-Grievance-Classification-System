@@ -59,4 +59,14 @@ export const aiAPI = {
   generateResponse: (data) => api.post('/ai/generate-response', data),
 };
 
+// Taxonomy APIs
+export const taxonomyAPI = {
+  getAll: () => api.get('/taxonomy'),
+  getById: (id) => api.get(`/taxonomy/${id}`),
+  create: (data) => api.post('/taxonomy', data),
+  update: (id, data) => api.put(`/taxonomy/${id}`, data),
+  toggle: (id) => api.patch(`/taxonomy/${id}/toggle`),
+  remove: (id) => api.delete(`/taxonomy/${id}`),
+};
+
 export default api;

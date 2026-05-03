@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const Grievance = require('../models/Grievance');
 const { auth, requireRole } = require('../middleware/auth');
 const { analyzeGrievance, generateOfficialResponse } = require('../utils/geminiAI');
@@ -52,13 +54,27 @@ router.post('/generate-response', auth, requireRole('admin', 'department'), asyn
   try {
     const { grievanceId, context } = req.body;
     const grievance = await Grievance.findById(grievanceId);
-    
+
     if (!grievance) {
       return res.status(404).json({ error: 'Grievance not found' });
     }
 
     const draft = await generateOfficialResponse(grievance, context);
     res.json({ draft });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get AI Benchmark Results
+router.get('/benchmark/results', auth, requireRole('admin'), async (req, res) => {
+  try {
+    const filePath = path.join(__dirname, '../data/benchmarkResults.json');
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Benchmark results not found. Please run the benchmark script.' });
+    }
+    const results = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

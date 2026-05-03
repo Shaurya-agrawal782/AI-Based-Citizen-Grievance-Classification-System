@@ -103,6 +103,50 @@ const grievanceSchema = new mongoose.Schema({
     ref: 'Grievance',
     default: null
   },
+  privacyConsent: {
+    type: Boolean,
+    default: false
+  },
+  privacyConsentAt: {
+    type: Date,
+    default: null
+  },
+  auditTrail: [{
+    action: String,
+    performedBy: {
+      userId: String,
+      name: String,
+      role: String
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    oldValue: mongoose.Schema.Types.Mixed,
+    newValue: mongoose.Schema.Types.Mixed,
+    reason: String,
+    systemGenerated: {
+      type: Boolean,
+      default: false
+    }
+  }],
+  caseHistory: [{
+    status: String,
+    note: String,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    actor: {
+      name: String,
+      role: String
+    },
+    visibility: {
+      type: String,
+      enum: ["internal", "citizen", "public"],
+      default: "internal"
+    }
+  }],
   timeline: [timelineEntrySchema]
 }, {
   timestamps: true

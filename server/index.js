@@ -7,6 +7,8 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const grievanceRoutes = require('./routes/grievances');
 const aiRoutes = require('./routes/ai');
+const taxonomyRoutes = require('./routes/taxonomy');
+const demoRoutes = require('./routes/demo');
 
 const app = express();
 
@@ -19,6 +21,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/grievances', grievanceRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/taxonomy', taxonomyRoutes);
+app.use('/api/demo', demoRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,17 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
 } from 'recharts';
-import { 
-  TrendingUp, Users, AlertCircle, CheckCircle, Clock, 
+import {
+  TrendingUp, Users, AlertCircle, CheckCircle, Clock,
   Filter, Download, Search, LayoutDashboard, FileText, Settings, HelpCircle, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { grievanceAPI } from '../services/api';
-import AIAssistant from '../components/AIAssistant';
 
 const categoryIcons = {
   'Public Infrastructure': { icon: 'construction', class: 'infrastructure' },
@@ -163,12 +162,12 @@ export default function AdminDashboard() {
           {/* New Command Center Card */}
           <div style={{ marginBottom: '2.5rem' }}>
             <Link to="/admin/map" style={{ textDecoration: 'none' }}>
-              <motion.div 
+              <motion.div
                 whileHover={{ y: -5, boxShadow: '0 10px 40px rgba(14,165,164,0.2)' }}
-                style={{ 
-                  padding: '2rem', 
-                  background: 'linear-gradient(135deg, var(--primary) 0%, #1e40af 100%)', 
-                  borderRadius: 'var(--radius-lg)', 
+                style={{
+                  padding: '2rem',
+                  background: 'linear-gradient(135deg, var(--primary) 0%, #1e40af 100%)',
+                  borderRadius: 'var(--radius-lg)',
                   color: 'white',
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -325,9 +324,9 @@ export default function AdminDashboard() {
                       {g.aiClassification?.sentiment && (
                         <>
                           <span>•</span>
-                          <span style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                          <span style={{
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '0.25rem',
                             color: g.aiClassification.sentiment === 'urgent/angry' ? 'var(--error)' : 'var(--on-surface-variant)',
                             fontWeight: g.aiClassification.sentiment === 'urgent/angry' ? 700 : 500
@@ -372,7 +371,6 @@ export default function AdminDashboard() {
           </div>
         </motion.div>
       </main>
-      <AIAssistant context="admin" />
     </div>
   );
 }

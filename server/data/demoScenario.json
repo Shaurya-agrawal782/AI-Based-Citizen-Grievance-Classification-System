@@ -1,0 +1,79 @@
+{
+  "demoCitizenComplaint": {
+    "title": "Electric pole sparking near school",
+    "description": "School ke paas bijli ka pole spark kar raha hai, bachcho ko danger hai.",
+    "location": {
+      "address": "School Road, Ward 1 North",
+      "ward": "Ward 1",
+      "zone": "North"
+    },
+    "citizenInfo": {
+      "name": "Anonymous Citizen",
+      "phone": "[MASKED]",
+      "language": "Hinglish (Voice Input)"
+    }
+  },
+  "demoAIAnalysis": {
+    "language": {
+      "detected": "Hinglish",
+      "confidence": 0.98,
+      "englishSummary": "Electricity pole is sparking near a school; children are at risk."
+    },
+    "classification": {
+      "category": "Electricity",
+      "department": "Electricity Board",
+      "confidence": 0.94,
+      "matchedSignals": ["pole", "spark", "bijli"]
+    },
+    "urgency": {
+      "priority": "Critical",
+      "severityLevel": "Life Safety Risk",
+      "slaHours": 4,
+      "urgencyScore": 0.95,
+      "escalationRequired": true,
+      "escalationReason": "Proximity to school, immediate life safety risk due to live sparks."
+    },
+    "routing": {
+      "assignedAuthority": "Ward Electricity Officer",
+      "ward": "Ward 1",
+      "zone": "North",
+      "escalationOfficer": "Chief Electrical Engineer",
+      "operationalAction": "Immediate field inspection and power isolation"
+    },
+    "explanation": "The issue involves active electrical sparking near a vulnerable location (school). This poses an immediate life safety risk. It has been classified as Critical with a 4-hour SLA and routed directly to the Ward Electricity Officer for immediate power isolation."
+  },
+  "demoDuplicateCluster": {
+    "isDuplicate": true,
+    "clusterId": "INC-2026-ELEC-WARD1-705",
+    "matchedComplaints": 3,
+    "similarity": 0.88,
+    "reasons": [
+      "Category matched (Electricity)",
+      "High keyword overlap (spark, pole, school)",
+      "Location/ward matched (Ward 1)",
+      "Recent unresolved complaint"
+    ]
+  },
+  "demoAssignedAuthority": {
+    "name": "Rajesh Kumar",
+    "role": "Ward Electricity Officer",
+    "contact": "+91-98765-XXXXX",
+    "status": "Dispatched"
+  },
+  "demoTimeline": [
+    { "time": "- 0 min", "action": "Voice complaint submitted by citizen via CivicTrust Web App" },
+    { "time": "+ 2 sec", "action": "PII Masked. AI detects Hinglish, translates, and classifies as Electricity" },
+    { "time": "+ 5 sec", "action": "Urgency Engine detects 'school' and 'spark', assigns Critical Priority (4h SLA)" },
+    { "time": "+ 6 sec", "action": "Duplicate Engine clusters issue with 3 other reports in Ward 1" },
+    { "time": "+ 8 sec", "action": "Routing Engine assigns Ward Electricity Officer" },
+    { "time": "+ 15 min", "action": "Officer dispatched for immediate power isolation" }
+  ],
+  "demoBenchmarkSummary": {
+    "totalProcessed": 120,
+    "classificationAccuracy": "92.5%",
+    "priorityAccuracy": "95.0%",
+    "criticalRecall": "100%",
+    "averageLatency": "1.2s",
+    "note": "Benchmarks generated via automated test suite against English, Hindi, and Hinglish datasets."
+  }
+}

@@ -159,7 +159,35 @@ export default function Landing() {
                 className="btn btn-outline btn-lg"
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>manage_search</span>
-                Track Your Complaint
+                Track
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate('/qr-zones')}
+                className="btn btn-outline btn-lg"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>qr_code_scanner</span>
+                Report via QR Zone
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate('/copilot')}
+                className="btn btn-outline btn-lg"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>smart_toy</span>
+                Open CivicDraft AI
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate('/demo-mode')}
+                className="btn btn-outline btn-lg"
+                style={{ background: 'var(--surface-container-low)', borderColor: 'var(--ai-teal)', color: 'var(--ai-teal)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>play_circle</span>
+                View Winning Demo
               </motion.button>
             </div>
 

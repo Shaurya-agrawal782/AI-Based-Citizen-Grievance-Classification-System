@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MapPin, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Mic, MapPin, Loader2, Sparkles, AlertCircle, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { grievanceAPI, aiAPI } from '../services/api';
-import AIAssistant from '../components/AIAssistant';
+import VoiceComplaintInput from '../components/citizen/VoiceComplaintInput';
+import GrievanceCopilot from '../components/citizen/GrievanceCopilot';
 
 const categories = [
   { value: 'Public Infrastructure', icon: 'construction', color: '#283593', bg: '#e8eaf6' },
@@ -61,43 +62,22 @@ export default function NewGrievance() {
     category: '',
     location: '',
     dateOfIncident: '',
+    privacyConsent: false,
   });
 
-  const [isListening, setIsListening] = useState(false);
+  const [voiceLanguage, setVoiceLanguage] = useState('hi-IN');
   const [isLocating, setIsLocating] = useState(false);
-  const recognitionRef = useRef(null);
 
-  // Initialize Speech Recognition
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window) {
-      recognitionRef.current = new window.webkitSpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
+    const storedDraft = localStorage.getItem('civictrust_draft_complaint');
+    if (!storedDraft) return;
 
-      recognitionRef.current.onresult = (event) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        if (finalTranscript) {
-          setForm(prev => ({ ...prev, description: (prev.description + ' ' + finalTranscript).trim() }));
-        }
-      };
-
-      recognitionRef.current.onend = () => setIsListening(false);
-    }
+    setForm(prev => {
+      if (prev.description?.trim()) return prev;
+      localStorage.removeItem('civictrust_draft_complaint');
+      return { ...prev, description: storedDraft };
+    });
   }, []);
-
-  const toggleListening = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-    } else {
-      recognitionRef.current?.start();
-      setIsListening(true);
-    }
-  };
 
   const handleDetectLocation = () => {
     setIsLocating(true);
@@ -106,7 +86,7 @@ export default function NewGrievance() {
         async (position) => {
           const { latitude, longitude } = position.coords;
           setForm(prev => ({ ...prev, location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
-          
+
           // Reverse geocoding would happen here in a real app
           try {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
@@ -133,6 +113,7 @@ export default function NewGrievance() {
       const res = await grievanceAPI.create({
         ...form,
         category: form.category || aiClassification?.suggestedDepartment,
+        privacyConsentAt: new Date().toISOString()
       });
       setSuccess(res.data.grievance);
     } catch (err) {
@@ -145,7 +126,7 @@ export default function NewGrievance() {
   // Debounced AI classification and Duplicate Check
   useEffect(() => {
     if (step !== 2 || (!form.title && !form.description)) return;
-    
+
     const timer = setTimeout(async () => {
       if (form.title.length > 5 || form.description.length > 10) {
         setAiLoading(true);
@@ -168,14 +149,14 @@ export default function NewGrievance() {
 
           // Parallel AI classification and Duplicate check
           const [classRes, dupRes] = await Promise.all([
-            aiAPI.classify({ 
-              title: form.title, 
+            aiAPI.classify({
+              title: form.title,
               description: form.description,
-              images: activeImages 
+              images: activeImages
             }),
             aiAPI.checkDuplicate({ title: form.title, description: form.description })
           ]);
-          
+
           setAiClassification(classRes.data);
           setDuplicateInfo(dupRes.data);
         } catch (err) {
@@ -302,35 +283,38 @@ export default function NewGrievance() {
                     <label className="form-label" htmlFor="title">Grievance Title</label>
                     <input id="title" className="form-input" type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Briefly describe the issue" required />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="description">Detailed Description</label>
-                    <div style={{ position: 'relative' }}>
-                      <textarea id="description" className="form-textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Provide as much detail as possible to assist in resolution..." rows={6} required />
-                      <button 
-                        onClick={toggleListening}
-                        className={`btn-icon ${isListening ? 'animate-pulse' : ''}`}
-                        style={{ position: 'absolute', bottom: '1rem', right: '1rem', background: isListening ? 'var(--error)' : 'var(--surface-container-high)', color: isListening ? 'white' : 'var(--primary)' }}
-                      >
-                        {isListening ? <Mic size={18} /> : <Mic size={18} />}
-                      </button>
+                  <div style={{ padding: '1rem', background: 'linear-gradient(135deg, rgba(30,58,138,0.05), rgba(14,165,164,0.05))', borderRadius: 'var(--radius-md)', border: '1px solid rgba(14,165,164,0.15)', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--primary)', fontWeight: 700 }}>
+                      <Mic size={18} />
+                      <span style={{ fontSize: '0.875rem' }}>Voice-first grievance filing</span>
                     </div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <Sparkles size={14} className="text-ai-teal" />
-                      Our AI handles multiple languages and detects sentiment automatically.
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
+                      Citizens can speak complaints in Indian languages. CivicTrust converts speech into text for AI classification and routing.
                     </p>
+                  </div>
+
+                  <VoiceComplaintInput
+                    value={form.description}
+                    onChange={(val) => setForm({ ...form, description: val })}
+                    language={voiceLanguage}
+                    onLanguageChange={setVoiceLanguage}
+                  />
+                  <GrievanceCopilot roughText={form.description} onApply={(val) => setForm({ ...form, description: val })} />
+
+                  <div>
 
                     {/* Duplicate Warning */}
                     <AnimatePresence>
                       {duplicateInfo?.isDuplicate && (
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
-                          style={{ 
-                            marginTop: '1rem', 
-                            padding: '1rem', 
-                            background: 'var(--error-container)', 
-                            color: 'var(--on-error-container)', 
+                          style={{
+                            marginTop: '1rem',
+                            padding: '1rem',
+                            background: 'var(--error-container)',
+                            color: 'var(--on-error-container)',
                             borderRadius: 'var(--radius-md)',
                             borderLeft: '4px solid var(--error)',
                             fontSize: '0.875rem'
@@ -341,18 +325,18 @@ export default function NewGrievance() {
                             <p style={{ fontWeight: 700 }}>Potential Duplicate Detected ({duplicateInfo.similarity}%)</p>
                           </div>
                           <p style={{ marginBottom: '0.75rem', opacity: 0.9 }}>
-                            A similar grievance has already been filed: <strong>"{duplicateInfo.existingGrievance.title}"</strong>. 
+                            A similar grievance has already been filed: <strong>"{duplicateInfo.existingGrievance.title}"</strong>.
                             You may want to track the existing issue instead.
                           </p>
                           <div style={{ display: 'flex', gap: '1rem' }}>
-                            <button 
+                            <button
                               onClick={() => navigate(`/track?id=${duplicateInfo.existingGrievance.trackingId}`)}
                               className="btn btn-ghost btn-sm"
                               style={{ color: 'var(--on-error-container)', border: '1px solid rgba(0,0,0,0.1)' }}
                             >
                               Track Existing Issue
                             </button>
-                            <button 
+                            <button
                               onClick={() => setDuplicateInfo(null)}
                               className="btn btn-ghost btn-sm"
                               style={{ opacity: 0.7 }}
@@ -373,7 +357,7 @@ export default function NewGrievance() {
                       <label className="form-label" htmlFor="location">Location</label>
                       <div style={{ position: 'relative' }}>
                         <input id="location" className="form-input" type="text" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Address or landmark" />
-                        <button 
+                        <button
                           onClick={handleDetectLocation}
                           disabled={isLocating}
                           className="btn-icon"
@@ -407,19 +391,19 @@ export default function NewGrievance() {
                       ))}
                     </div>
                   </div>
-                  <div 
+                  <div
                     className={`upload-zone ${isDragging ? 'dragging' : ''}`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => document.getElementById('fileInput').click()}
                   >
-                    <input 
-                      id="fileInput" 
-                      type="file" 
-                      multiple 
-                      onChange={handleFileSelect} 
-                      style={{ display: 'none' }} 
+                    <input
+                      id="fileInput"
+                      type="file"
+                      multiple
+                      onChange={handleFileSelect}
+                      style={{ display: 'none' }}
                     />
                     <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: isDragging ? 'var(--primary)' : 'var(--outline)', marginBottom: '0.5rem', display: 'block' }}>
                       {isDragging ? 'download' : 'cloud_upload'}
@@ -488,6 +472,27 @@ export default function NewGrievance() {
                       </p>
                     </div>
                   )}
+
+                  <div style={{ padding: '1.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-container-high)', marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--primary)', fontWeight: 700 }}>
+                      <ShieldAlert size={18} />
+                      <span style={{ fontSize: '0.875rem' }}>Privacy-first grievance processing</span>
+                    </div>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, marginBottom: '1rem' }}>
+                      CivicTrust uses your complaint data only for classification, routing, tracking, and resolution. Sensitive information is automatically masked before AI processing to ensure privacy by design.
+                    </p>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={form.privacyConsent}
+                        onChange={(e) => setForm({ ...form, privacyConsent: e.target.checked })}
+                        style={{ marginTop: '0.25rem', width: '1.125rem', height: '1.125rem', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-surface)', lineHeight: 1.4 }}>
+                        I consent to the processing of my complaint data for classification, routing, tracking, and resolution.
+                      </span>
+                    </label>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -511,7 +516,7 @@ export default function NewGrievance() {
                 <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>arrow_forward</span>
               </button>
             ) : (
-              <button onClick={handleSubmit} className="btn btn-primary" disabled={loading}>
+              <button onClick={handleSubmit} className="btn btn-primary" disabled={loading || !form.privacyConsent}>
                 {loading ? <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }} /> : (
                   <>Submit Grievance <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span></>
                 )}
@@ -582,9 +587,9 @@ export default function NewGrievance() {
 
                 {/* AI Evidence Verification */}
                 {aiClassification.verification && (
-                  <div style={{ 
-                    marginBottom: '1rem', 
-                    padding: '0.75rem', 
+                  <div style={{
+                    marginBottom: '1rem',
+                    padding: '0.75rem',
                     background: aiClassification.verification.status === 'verified' ? 'rgba(14,165,164,0.05)' : 'rgba(239,153,0,0.05)',
                     borderRadius: 'var(--radius-md)',
                     border: `1px solid ${aiClassification.verification.status === 'verified' ? 'rgba(14,165,164,0.2)' : 'rgba(239,153,0,0.2)'}`
@@ -647,7 +652,6 @@ export default function NewGrievance() {
           </div>
         </div>
       </div>
-      <AIAssistant context="newGrievance" formContent={form} />
     </div>
   );
 }

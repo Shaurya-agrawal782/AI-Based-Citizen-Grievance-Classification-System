@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,14 +22,35 @@ export default function Navbar() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showSmartTools, setShowSmartTools] = useState(false);
+  const smartToolsRef = React.useRef(null);
   const [notifCount, setNotifCount] = useState(3);
+
+  React.useEffect(() => {
+    function handleClickOutside(event) {
+      if (smartToolsRef.current && !smartToolsRef.current.contains(event.target)) {
+        setShowSmartTools(false);
+      }
+    }
+    function handleEscape(event) {
+      if (event.key === 'Escape') {
+        setShowSmartTools(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   const toggleNotifs = () => { setShowNotifications(!showNotifications); setShowHelp(false); setShowProfile(false); };
   const toggleHelp = () => { setShowHelp(!showHelp); setShowNotifications(false); setShowProfile(false); };
   const toggleProfile = () => { setShowProfile(!showProfile); setShowNotifications(false); setShowHelp(false); };
 
   return (
-    <header className="navbar">
+    <header className="navbar" style={{ position: 'sticky', top: 0, zIndex: 1000, background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--surface-container)' }}>
       <div className="navbar-inner">
         <Link to={isAdmin ? '/admin' : '/dashboard'} className="navbar-brand">
           <span className="material-symbols-outlined filled">account_balance</span>
@@ -46,12 +67,42 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+          <div className="nav-dropdown-wrapper" style={{ position: 'relative' }} ref={smartToolsRef}>
+            <button
+              className="navbar-link btn-ghost premium-button-hover"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--on-surface)' }}
+              onClick={() => setShowSmartTools(!showSmartTools)}
+            >
+              Smart Tools <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>expand_more</span>
+            </button>
+            {showSmartTools && (
+              <div className="nav-dropdown nav-dropdown-enter" style={{ position: 'absolute', top: '100%', left: '0', minWidth: '230px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-xl)', padding: '0.5rem', boxShadow: 'var(--shadow-xl)', border: '1px solid var(--surface-container)', zIndex: 1000, marginTop: '0.5rem' }}>
+                <Link to="/qr-zones" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
+                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--primary)' }}>qr_code_scanner</span>
+                  QR Zones
+                </Link>
+                <Link to="/track-ticket" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
+                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--secondary)' }}>confirmation_number</span>
+                  Track Ticket
+                </Link>
+                <Link to="/copilot" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
+                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: '#10b981' }}>smart_toy</span>
+                  CivicDraft AI
+                </Link>
+                <div style={{ height: '1px', background: 'var(--surface-container)', margin: '0.5rem 0' }} />
+                <Link to="/demo-mode" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: 'var(--ai-teal)' }} onClick={() => setShowSmartTools(false)}>
+                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>play_circle</span>
+                  Demo Mode
+                </Link>
+              </div>
+            )}
+          </div>
         </nav>
 
         <div className="navbar-actions">
-          <div className="navbar-search">
+          <div className="navbar-search" style={{ maxWidth: '200px' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '1.125rem', color: 'var(--outline)' }}>search</span>
-            <input type="text" placeholder="Search tracking ID..." />
+            <input type="text" placeholder="Search ID..." style={{ fontSize: '0.875rem' }} />
           </div>
 
           {/* Notifications */}
@@ -103,8 +154,8 @@ export default function Navbar() {
 
           {user && (
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <button 
-                className="navbar-avatar-btn" 
+              <button
+                className="navbar-avatar-btn"
                 onClick={toggleProfile}
                 style={{ background: 'none', border: 'none', padding: 0 }}
               >
@@ -123,9 +174,9 @@ export default function Navbar() {
                     <span className="material-symbols-outlined">person</span>
                     <span>Profile Settings</span>
                   </button>
-                  <button 
+                  <button
                     onClick={logout}
-                    className="nav-dropdown-item" 
+                    className="nav-dropdown-item"
                     style={{ width: '100%', gap: '0.75rem', color: 'var(--error)' }}
                   >
                     <span className="material-symbols-outlined">logout</span>

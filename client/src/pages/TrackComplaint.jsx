@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { grievanceAPI } from '../services/api';
+import CaseHistoryTimeline from '../components/common/CaseHistoryTimeline';
 
 const statusLabels = {
   'submitted': 'Submitted',
@@ -113,13 +114,13 @@ export default function TrackComplaint() {
                   <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>account_tree</span>
                   Resolution Path (AI-Driven)
                 </p>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
                   {solutionFlow.map((step, i) => {
                     const statusOrder = ['submitted', 'in-review', 'in-progress', 'resolved', 'closed', 'escalated'];
                     const currentIdx = statusOrder.indexOf(grievance.status);
                     const stepIdx = statusOrder.indexOf(step.status);
-                    
+
                     let isActive = stepIdx <= currentIdx;
                     let isCurrent = step.status === grievance.status && (
                       (step.id === 'work' && grievance.status === 'in-progress') ||
@@ -133,9 +134,9 @@ export default function TrackComplaint() {
                     if (grievance.status === 'reopened' && stepIdx <= statusOrder.indexOf('in-progress')) isActive = true;
 
                     return (
-                      <div key={step.id} style={{ 
-                        padding: '1rem', 
-                        borderRadius: 'var(--radius-md)', 
+                      <div key={step.id} style={{
+                        padding: '1rem',
+                        borderRadius: 'var(--radius-md)',
                         background: isActive ? 'var(--surface-container-low)' : 'var(--surface-container-lowest)',
                         border: `1px solid ${isActive ? 'var(--primary-container)' : 'var(--surface-container-high)'}`,
                         opacity: isActive ? 1 : 0.5,
@@ -143,17 +144,17 @@ export default function TrackComplaint() {
                         transition: 'all 0.3s'
                       }}>
                         {isActive && (
-                          <div style={{ 
-                            position: 'absolute', top: '-5px', right: '-5px', 
-                            background: 'var(--primary)', color: 'white', 
+                          <div style={{
+                            position: 'absolute', top: '-5px', right: '-5px',
+                            background: 'var(--primary)', color: 'white',
                             borderRadius: '50%', width: '1.25rem', height: '1.25rem',
                             display: 'flex', alignItems: 'center', justifyContent: 'center'
                           }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>check</span>
                           </div>
                         )}
-                        <span className="material-symbols-outlined" style={{ 
-                          fontSize: '1.5rem', 
+                        <span className="material-symbols-outlined" style={{
+                          fontSize: '1.5rem',
                           color: isActive ? 'var(--primary)' : 'var(--outline)',
                           marginBottom: '0.5rem',
                           display: 'block'
@@ -164,9 +165,9 @@ export default function TrackComplaint() {
                     );
                   })}
                 </div>
-                
+
                 {grievance.status === 'escalated' && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--error-container)', color: 'var(--on-error-container)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--error)' }}>
                     <p style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -207,6 +208,11 @@ export default function TrackComplaint() {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Case History Timeline - citizen-visible updates */}
+            {grievance.caseHistory && grievance.caseHistory.length > 0 && (
+              <CaseHistoryTimeline grievance={grievance} compact={true} />
             )}
           </motion.div>
         )}

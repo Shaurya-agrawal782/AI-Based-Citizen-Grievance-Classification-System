@@ -1,0 +1,205 @@
+{
+  "totalSamples": 120,
+  "categoryAccuracy": 57.49999999999999,
+  "priorityAccuracy": 35,
+  "criticalRecall": 20,
+  "humanReviewRate": 62.5,
+  "averageConfidence": 0.6055000000000003,
+  "averageLatencyMs": 0.1,
+  "languageBreakdown": {
+    "English": {
+      "total": 36,
+      "correctCategory": 27
+    },
+    "Hindi": {
+      "total": 33,
+      "correctCategory": 0
+    },
+    "Hinglish": {
+      "total": 36,
+      "correctCategory": 27
+    },
+    "Other": {
+      "total": 15,
+      "correctCategory": 15
+    }
+  },
+  "categoryBreakdown": {
+    "Electricity": {
+      "total": 21,
+      "correctCategory": 15
+    },
+    "Water Supply": {
+      "total": 21,
+      "correctCategory": 15
+    },
+    "Sanitation": {
+      "total": 21,
+      "correctCategory": 12
+    },
+    "Roads": {
+      "total": 18,
+      "correctCategory": 12
+    },
+    "Public Safety": {
+      "total": 24,
+      "correctCategory": 0
+    },
+    "Other": {
+      "total": 15,
+      "correctCategory": 15
+    }
+  },
+  "failedCases": [
+    {
+      "id": "B004",
+      "title": "Potholes on main road",
+      "language": "English",
+      "expectedCategory": "Roads",
+      "predictedCategory": "Roads",
+      "expectedPriority": "Normal",
+      "predictedPriority": "Urgent",
+      "latency": 0
+    },
+    {
+      "id": "B005",
+      "title": "Open manhole",
+      "language": "English",
+      "expectedCategory": "Public Safety",
+      "predictedCategory": "Other",
+      "expectedPriority": "Urgent",
+      "predictedPriority": "Review",
+      "latency": 0
+    },
+    {
+      "id": "B009",
+      "title": "Potholes on main road",
+      "language": "English",
+      "expectedCategory": "Roads",
+      "predictedCategory": "Roads",
+      "expectedPriority": "Normal",
+      "predictedPriority": "Urgent",
+      "latency": 0
+    },
+    {
+      "id": "B010",
+      "title": "Open manhole",
+      "language": "English",
+      "expectedCategory": "Public Safety",
+      "predictedCategory": "Other",
+      "expectedPriority": "Urgent",
+      "predictedPriority": "Review",
+      "latency": 0
+    },
+    {
+      "id": "B014",
+      "title": "Potholes on main road",
+      "language": "English",
+      "expectedCategory": "Roads",
+      "predictedCategory": "Roads",
+      "expectedPriority": "Normal",
+      "predictedPriority": "Urgent",
+      "latency": 1
+    },
+    {
+      "id": "B015",
+      "title": "Open manhole",
+      "language": "English",
+      "expectedCategory": "Public Safety",
+      "predictedCategory": "Other",
+      "expectedPriority": "Urgent",
+      "predictedPriority": "Review",
+      "latency": 0
+    },
+    {
+      "id": "B019",
+      "title": "Potholes on main road",
+      "language": "English",
+      "expectedCategory": "Roads",
+      "predictedCategory": "Roads",
+      "expectedPriority": "Normal",
+      "predictedPriority": "Urgent",
+      "latency": 0
+    },
+    {
+      "id": "B020",
+      "title": "Open manhole",
+      "language": "English",
+      "expectedCategory": "Public Safety",
+      "predictedCategory": "Other",
+      "expectedPriority": "Urgent",
+      "predictedPriority": "Review",
+      "latency": 0
+    },
+    {
+      "id": "B024",
+      "title": "Potholes on main road",
+      "language": "English",
+      "expectedCategory": "Roads",
+      "predictedCategory": "Roads",
+      "expectedPriority": "Normal",
+      "predictedPriority": "Urgent",
+      "latency": 0
+    },
+    {
+      "id": "B025",
+      "title": "Open manhole",
+      "language": "English",
+      "expectedCategory": "Public Safety",
+      "predictedCategory": "Other",
+      "expectedPriority": "Urgent",
+      "predictedPriority": "Review",
+      "latency": 0
+    },
+    {
+      "id": "B029",
+      "title": "Potholes on main road",
+      "language": "English",
+      "expectedCategory": "Roads",
+      "predictedCategory": "Roads",
+      "expectedPriority": "Normal",
+      "predictedPriority": "Urgent",
+      "latency": 0
+    },
+    {
+      "id": "B030",
+      "title": "Open manhole",
+      "language": "English",
+      "expectedCategory": "Public Safety",
+      "predictedCategory": "Other",
+      "expectedPriority": "Urgent",
+      "predictedPriority": "Review",
+      "latency": 0
+    },
+    {
+      "id": "B031",
+      "title": "बिजली नहीं है",
+      "language": "Hindi",
+      "expectedCategory": "Electricity",
+      "predictedCategory": "Other",
+      "expectedPriority": "Normal",
+      "predictedPriority": "Review",
+      "latency": 1
+    },
+    {
+      "id": "B032",
+      "title": "पानी की समस्या",
+      "language": "Hindi",
+      "expectedCategory": "Water Supply",
+      "predictedCategory": "Other",
+      "expectedPriority": "Urgent",
+      "predictedPriority": "Review",
+      "latency": 0
+    },
+    {
+      "id": "B033",
+      "title": "कचरा पड़ा है",
+      "language": "Hindi",
+      "expectedCategory": "Sanitation",
+      "predictedCategory": "Other",
+      "expectedPriority": "Normal",
+      "predictedPriority": "Review",
+      "latency": 0
+    }
+  ]
+}

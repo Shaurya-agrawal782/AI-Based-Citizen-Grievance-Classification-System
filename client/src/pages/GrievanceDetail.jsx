@@ -4,6 +4,11 @@ import { motion } from 'framer-motion';
 import { Sparkles, AlertCircle, Globe, MessageSquare, ArrowLeft, Mail } from 'lucide-react';
 import { grievanceAPI, aiAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import AIDecisionCard from '../components/admin/AIDecisionCard';
+import AuditTrailCard from '../components/admin/AuditTrailCard';
+import CaseHistoryTimeline from '../components/common/CaseHistoryTimeline';
+import OfficerCopilot from '../components/admin/OfficerCopilot';
+import WorkloadBalancerCard from '../components/admin/WorkloadBalancerCard';
 
 const statusLabels = {
   'submitted': 'Submitted', 'in-review': 'In Review', 'in-progress': 'In Progress',
@@ -146,7 +151,7 @@ export default function GrievanceDetail() {
           <Link to="/admin" className="sidebar-link"><span className="material-symbols-outlined">grid_view</span>Overview</Link>
           <Link to="/admin" className="sidebar-link active"><span className="material-symbols-outlined">description</span>Grievance Feed</Link>
           <Link to="/admin/analytics" className="sidebar-link"><span className="material-symbols-outlined">analytics</span>Analytics</Link>
-          <a href="#" className="sidebar-link"><span className="material-symbols-outlined">alt_route</span>Departmental Routing</a>
+          <Link to="/admin/taxonomy" className="sidebar-link"><span className="material-symbols-outlined">account_tree</span>Taxonomy Studio</Link>
           <a href="#" className="sidebar-link"><span className="material-symbols-outlined">settings</span>Settings</a>
         </nav>
         <div className="sidebar-footer">
@@ -189,6 +194,14 @@ export default function GrievanceDetail() {
             {grievance.category} • {grievance.department}
           </p>
 
+          <AIDecisionCard grievance={grievance} />
+          <div style={{ marginBottom: '2rem' }}>
+            <OfficerCopilot category={grievance.category} priority={grievance.priority} standalone={true} />
+          </div>
+          <div style={{ marginBottom: '2rem' }}>
+            <WorkloadBalancerCard filterDepartment={grievance.category} />
+          </div>
+
           {/* Main Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '2rem', alignItems: 'start' }}>
             {/* Left: Complaint Details */}
@@ -197,7 +210,7 @@ export default function GrievanceDetail() {
               <div className="card" style={{ padding: '2rem' }}>
                 <p className="form-label" style={{ marginBottom: '1rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>description</span>
-                  Citizen Description 
+                  Citizen Description
                   {grievance.aiClassification?.detectedLanguage && grievance.aiClassification.detectedLanguage.toLowerCase() !== 'english' && (
                     <span className="badge badge-ai" style={{ fontSize: '0.625rem', padding: '2px 6px' }}>Translated from {grievance.aiClassification.detectedLanguage}</span>
                   )}
@@ -252,20 +265,28 @@ export default function GrievanceDetail() {
                 </div>
               )}
 
+              {/* Case History Timeline (admin sees all, citizen sees filtered) */}
+              <CaseHistoryTimeline grievance={grievance} compact={user?.role === 'citizen'} />
+
+              {/* Audit Trail (admin/department only) */}
+              {user?.role !== 'citizen' && (
+                <AuditTrailCard grievance={grievance} />
+              )}
+
               {/* Quick Status Update */}
               <div className="card" style={{ padding: '1.5rem' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Quick Actions</h3>
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label className="form-label" style={{ fontSize: '0.75rem' }}>Official Note / Response Context</label>
-                  <textarea 
-                    className="form-textarea" 
-                    rows={3} 
-                    value={note} 
+                  <textarea
+                    className="form-textarea"
+                    rows={3}
+                    value={note}
                     onChange={e => setNote(e.target.value)}
                     placeholder="Enter any specific details for the resolution..."
                     style={{ fontSize: '0.875rem', padding: '0.75rem' }}
                   />
-                  <button 
+                  <button
                     onClick={handleGenerateDraft}
                     disabled={draftLoading}
                     className="btn btn-ghost btn-sm"
@@ -278,7 +299,7 @@ export default function GrievanceDetail() {
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ marginTop: '1rem', padding: '1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}>
                       <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>AI Drafted Response:</p>
                       <p style={{ fontSize: '0.875rem', lineHeight: 1.5 }}>{aiDraft}</p>
-                      <button 
+                      <button
                         onClick={() => { setNote(aiDraft); setAiDraft(''); }}
                         className="btn btn-ghost btn-sm"
                         style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}

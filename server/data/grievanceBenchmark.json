@@ -1,0 +1,1802 @@
+[
+  {
+    "id": "B001",
+    "language": "English",
+    "title": "Street light not working",
+    "description": "The street light in front of my house has been off for 3 days.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 77",
+      "ward": "Ward 4",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 4 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B002",
+    "language": "English",
+    "title": "No water supply",
+    "description": "We haven't received any water supply for the past two days.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 77",
+      "ward": "Ward 4",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 4 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B003",
+    "language": "English",
+    "title": "Garbage not collected",
+    "description": "The garbage truck hasn't come for a week. Trash is piling up.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 77",
+      "ward": "Ward 4",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 4 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B004",
+    "language": "English",
+    "title": "Potholes on main road",
+    "description": "There are several large potholes causing traffic blocks.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 77",
+      "ward": "Ward 4",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 4 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B005",
+    "language": "English",
+    "title": "Open manhole",
+    "description": "There is an open manhole without any warning signs.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 77",
+      "ward": "Ward 4",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 4 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B006",
+    "language": "English",
+    "title": "Street light not working",
+    "description": "The street light in front of my house has been off for 3 days.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 48",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": false
+  },
+  {
+    "id": "B007",
+    "language": "English",
+    "title": "No water supply",
+    "description": "We haven't received any water supply for the past two days.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 48",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": false
+  },
+  {
+    "id": "B008",
+    "language": "English",
+    "title": "Garbage not collected",
+    "description": "The garbage truck hasn't come for a week. Trash is piling up.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 48",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": false
+  },
+  {
+    "id": "B009",
+    "language": "English",
+    "title": "Potholes on main road",
+    "description": "There are several large potholes causing traffic blocks.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 48",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": false
+  },
+  {
+    "id": "B010",
+    "language": "English",
+    "title": "Open manhole",
+    "description": "There is an open manhole without any warning signs.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 48",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": false
+  },
+  {
+    "id": "B011",
+    "language": "English",
+    "title": "Street light not working",
+    "description": "The street light in front of my house has been off for 3 days.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B012",
+    "language": "English",
+    "title": "No water supply",
+    "description": "We haven't received any water supply for the past two days.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B013",
+    "language": "English",
+    "title": "Garbage not collected",
+    "description": "The garbage truck hasn't come for a week. Trash is piling up.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B014",
+    "language": "English",
+    "title": "Potholes on main road",
+    "description": "There are several large potholes causing traffic blocks.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B015",
+    "language": "English",
+    "title": "Open manhole",
+    "description": "There is an open manhole without any warning signs.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B016",
+    "language": "English",
+    "title": "Street light not working",
+    "description": "The street light in front of my house has been off for 3 days.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 52",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B017",
+    "language": "English",
+    "title": "No water supply",
+    "description": "We haven't received any water supply for the past two days.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 52",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B018",
+    "language": "English",
+    "title": "Garbage not collected",
+    "description": "The garbage truck hasn't come for a week. Trash is piling up.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 52",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B019",
+    "language": "English",
+    "title": "Potholes on main road",
+    "description": "There are several large potholes causing traffic blocks.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 52",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B020",
+    "language": "English",
+    "title": "Open manhole",
+    "description": "There is an open manhole without any warning signs.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 52",
+      "ward": "Ward 2",
+      "zone": "East"
+    },
+    "locationContext": "Ward 2 East",
+    "isCritical": false
+  },
+  {
+    "id": "B021",
+    "language": "English",
+    "title": "Street light not working",
+    "description": "The street light in front of my house has been off for 3 days.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 94",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B022",
+    "language": "English",
+    "title": "No water supply",
+    "description": "We haven't received any water supply for the past two days.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 94",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B023",
+    "language": "English",
+    "title": "Garbage not collected",
+    "description": "The garbage truck hasn't come for a week. Trash is piling up.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 94",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B024",
+    "language": "English",
+    "title": "Potholes on main road",
+    "description": "There are several large potholes causing traffic blocks.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 94",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B025",
+    "language": "English",
+    "title": "Open manhole",
+    "description": "There is an open manhole without any warning signs.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 94",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B026",
+    "language": "English",
+    "title": "Street light not working",
+    "description": "The street light in front of my house has been off for 3 days.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 30",
+      "ward": "Ward 1",
+      "zone": "West"
+    },
+    "locationContext": "Ward 1 West",
+    "isCritical": false
+  },
+  {
+    "id": "B027",
+    "language": "English",
+    "title": "No water supply",
+    "description": "We haven't received any water supply for the past two days.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 30",
+      "ward": "Ward 1",
+      "zone": "West"
+    },
+    "locationContext": "Ward 1 West",
+    "isCritical": false
+  },
+  {
+    "id": "B028",
+    "language": "English",
+    "title": "Garbage not collected",
+    "description": "The garbage truck hasn't come for a week. Trash is piling up.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 30",
+      "ward": "Ward 1",
+      "zone": "West"
+    },
+    "locationContext": "Ward 1 West",
+    "isCritical": false
+  },
+  {
+    "id": "B029",
+    "language": "English",
+    "title": "Potholes on main road",
+    "description": "There are several large potholes causing traffic blocks.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 30",
+      "ward": "Ward 1",
+      "zone": "West"
+    },
+    "locationContext": "Ward 1 West",
+    "isCritical": false
+  },
+  {
+    "id": "B030",
+    "language": "English",
+    "title": "Open manhole",
+    "description": "There is an open manhole without any warning signs.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 30",
+      "ward": "Ward 1",
+      "zone": "West"
+    },
+    "locationContext": "Ward 1 West",
+    "isCritical": false
+  },
+  {
+    "id": "B031",
+    "language": "Hindi",
+    "title": "बिजली नहीं है",
+    "description": "कल रात से बिजली नहीं आ रही है, कृपया ठीक करें।",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 70",
+      "ward": "Ward 4",
+      "zone": "North"
+    },
+    "locationContext": "Ward 4 North",
+    "isCritical": false
+  },
+  {
+    "id": "B032",
+    "language": "Hindi",
+    "title": "पानी की समस्या",
+    "description": "नलों में पानी नहीं आ रहा है, हम बहुत परेशान हैं।",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 70",
+      "ward": "Ward 4",
+      "zone": "North"
+    },
+    "locationContext": "Ward 4 North",
+    "isCritical": false
+  },
+  {
+    "id": "B033",
+    "language": "Hindi",
+    "title": "कचरा पड़ा है",
+    "description": "सड़क पर कचरा फैला हुआ है, कोई सफाई नहीं कर रहा।",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 70",
+      "ward": "Ward 4",
+      "zone": "North"
+    },
+    "locationContext": "Ward 4 North",
+    "isCritical": false
+  },
+  {
+    "id": "B034",
+    "language": "Hindi",
+    "title": "सड़क खराब है",
+    "description": "सड़क में बहुत बड़े गड्ढे हैं, एक्सीडेंट हो सकता है।",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 70",
+      "ward": "Ward 4",
+      "zone": "North"
+    },
+    "locationContext": "Ward 4 North",
+    "isCritical": false
+  },
+  {
+    "id": "B035",
+    "language": "Hindi",
+    "title": "खुला गड्ढा",
+    "description": "रास्ते में बड़ा गड्ढा खुला है, कोई भी गिर सकता है।",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 70",
+      "ward": "Ward 4",
+      "zone": "North"
+    },
+    "locationContext": "Ward 4 North",
+    "isCritical": false
+  },
+  {
+    "id": "B036",
+    "language": "Hindi",
+    "title": "बिजली नहीं है",
+    "description": "कल रात से बिजली नहीं आ रही है, कृपया ठीक करें।",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 37",
+      "ward": "Ward 2",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 2 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B037",
+    "language": "Hindi",
+    "title": "पानी की समस्या",
+    "description": "नलों में पानी नहीं आ रहा है, हम बहुत परेशान हैं।",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 37",
+      "ward": "Ward 2",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 2 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B038",
+    "language": "Hindi",
+    "title": "कचरा पड़ा है",
+    "description": "सड़क पर कचरा फैला हुआ है, कोई सफाई नहीं कर रहा।",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 37",
+      "ward": "Ward 2",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 2 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B039",
+    "language": "Hindi",
+    "title": "सड़क खराब है",
+    "description": "सड़क में बहुत बड़े गड्ढे हैं, एक्सीडेंट हो सकता है।",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 37",
+      "ward": "Ward 2",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 2 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B040",
+    "language": "Hindi",
+    "title": "खुला गड्ढा",
+    "description": "रास्ते में बड़ा गड्ढा खुला है, कोई भी गिर सकता है।",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 37",
+      "ward": "Ward 2",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 2 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B041",
+    "language": "Hindi",
+    "title": "बिजली नहीं है",
+    "description": "कल रात से बिजली नहीं आ रही है, कृपया ठीक करें।",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 5",
+      "zone": "North"
+    },
+    "locationContext": "Ward 5 North",
+    "isCritical": false
+  },
+  {
+    "id": "B042",
+    "language": "Hindi",
+    "title": "पानी की समस्या",
+    "description": "नलों में पानी नहीं आ रहा है, हम बहुत परेशान हैं।",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 5",
+      "zone": "North"
+    },
+    "locationContext": "Ward 5 North",
+    "isCritical": false
+  },
+  {
+    "id": "B043",
+    "language": "Hindi",
+    "title": "कचरा पड़ा है",
+    "description": "सड़क पर कचरा फैला हुआ है, कोई सफाई नहीं कर रहा।",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 5",
+      "zone": "North"
+    },
+    "locationContext": "Ward 5 North",
+    "isCritical": false
+  },
+  {
+    "id": "B044",
+    "language": "Hindi",
+    "title": "सड़क खराब है",
+    "description": "सड़क में बहुत बड़े गड्ढे हैं, एक्सीडेंट हो सकता है।",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 5",
+      "zone": "North"
+    },
+    "locationContext": "Ward 5 North",
+    "isCritical": false
+  },
+  {
+    "id": "B045",
+    "language": "Hindi",
+    "title": "खुला गड्ढा",
+    "description": "रास्ते में बड़ा गड्ढा खुला है, कोई भी गिर सकता है।",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 33",
+      "ward": "Ward 5",
+      "zone": "North"
+    },
+    "locationContext": "Ward 5 North",
+    "isCritical": false
+  },
+  {
+    "id": "B046",
+    "language": "Hindi",
+    "title": "बिजली नहीं है",
+    "description": "कल रात से बिजली नहीं आ रही है, कृपया ठीक करें।",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 92",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B047",
+    "language": "Hindi",
+    "title": "पानी की समस्या",
+    "description": "नलों में पानी नहीं आ रहा है, हम बहुत परेशान हैं।",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 92",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B048",
+    "language": "Hindi",
+    "title": "कचरा पड़ा है",
+    "description": "सड़क पर कचरा फैला हुआ है, कोई सफाई नहीं कर रहा।",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 92",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B049",
+    "language": "Hindi",
+    "title": "सड़क खराब है",
+    "description": "सड़क में बहुत बड़े गड्ढे हैं, एक्सीडेंट हो सकता है।",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 92",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B050",
+    "language": "Hindi",
+    "title": "खुला गड्ढा",
+    "description": "रास्ते में बड़ा गड्ढा खुला है, कोई भी गिर सकता है।",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 92",
+      "ward": "Ward 3",
+      "zone": "South"
+    },
+    "locationContext": "Ward 3 South",
+    "isCritical": false
+  },
+  {
+    "id": "B051",
+    "language": "Hindi",
+    "title": "बिजली नहीं है",
+    "description": "कल रात से बिजली नहीं आ रही है, कृपया ठीक करें।",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 15",
+      "ward": "Ward 2",
+      "zone": "North"
+    },
+    "locationContext": "Ward 2 North",
+    "isCritical": false
+  },
+  {
+    "id": "B052",
+    "language": "Hindi",
+    "title": "पानी की समस्या",
+    "description": "नलों में पानी नहीं आ रहा है, हम बहुत परेशान हैं।",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 15",
+      "ward": "Ward 2",
+      "zone": "North"
+    },
+    "locationContext": "Ward 2 North",
+    "isCritical": false
+  },
+  {
+    "id": "B053",
+    "language": "Hindi",
+    "title": "कचरा पड़ा है",
+    "description": "सड़क पर कचरा फैला हुआ है, कोई सफाई नहीं कर रहा।",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 15",
+      "ward": "Ward 2",
+      "zone": "North"
+    },
+    "locationContext": "Ward 2 North",
+    "isCritical": false
+  },
+  {
+    "id": "B054",
+    "language": "Hindi",
+    "title": "सड़क खराब है",
+    "description": "सड़क में बहुत बड़े गड्ढे हैं, एक्सीडेंट हो सकता है।",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 15",
+      "ward": "Ward 2",
+      "zone": "North"
+    },
+    "locationContext": "Ward 2 North",
+    "isCritical": false
+  },
+  {
+    "id": "B055",
+    "language": "Hindi",
+    "title": "खुला गड्ढा",
+    "description": "रास्ते में बड़ा गड्ढा खुला है, कोई भी गिर सकता है।",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 15",
+      "ward": "Ward 2",
+      "zone": "North"
+    },
+    "locationContext": "Ward 2 North",
+    "isCritical": false
+  },
+  {
+    "id": "B056",
+    "language": "Hindi",
+    "title": "बिजली नहीं है",
+    "description": "कल रात से बिजली नहीं आ रही है, कृपया ठीक करें।",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 90",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B057",
+    "language": "Hindi",
+    "title": "पानी की समस्या",
+    "description": "नलों में पानी नहीं आ रहा है, हम बहुत परेशान हैं।",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 90",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B058",
+    "language": "Hindi",
+    "title": "कचरा पड़ा है",
+    "description": "सड़क पर कचरा फैला हुआ है, कोई सफाई नहीं कर रहा।",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 90",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B059",
+    "language": "Hindi",
+    "title": "सड़क खराब है",
+    "description": "सड़क में बहुत बड़े गड्ढे हैं, एक्सीडेंट हो सकता है।",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 90",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B060",
+    "language": "Hindi",
+    "title": "खुला गड्ढा",
+    "description": "रास्ते में बड़ा गड्ढा खुला है, कोई भी गिर सकता है।",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 90",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B061",
+    "language": "Hinglish",
+    "title": "Light nahi aa rahi",
+    "description": "Kal raat se hamare area mein power cut hai.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 78",
+      "ward": "Ward 4",
+      "zone": "West"
+    },
+    "locationContext": "Ward 4 West",
+    "isCritical": false
+  },
+  {
+    "id": "B062",
+    "language": "Hinglish",
+    "title": "Pani supply band",
+    "description": "Bina bataye pani band kar diya, pareshani ho rahi hai.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 78",
+      "ward": "Ward 4",
+      "zone": "West"
+    },
+    "locationContext": "Ward 4 West",
+    "isCritical": false
+  },
+  {
+    "id": "B063",
+    "language": "Hinglish",
+    "title": "Kachra uthao",
+    "description": "Nala overflow kar raha hai, bohot gandagi hai.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 78",
+      "ward": "Ward 4",
+      "zone": "West"
+    },
+    "locationContext": "Ward 4 West",
+    "isCritical": false
+  },
+  {
+    "id": "B064",
+    "language": "Hinglish",
+    "title": "Sadak toot gayi",
+    "description": "Barish ki wajah se road pe bohot gaddhe ho gaye hain.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 78",
+      "ward": "Ward 4",
+      "zone": "West"
+    },
+    "locationContext": "Ward 4 West",
+    "isCritical": false
+  },
+  {
+    "id": "B065",
+    "language": "Hinglish",
+    "title": "Gutter open hai",
+    "description": "Main road pe gutter ka dhakkan nahi hai, dangerous hai.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 78",
+      "ward": "Ward 4",
+      "zone": "West"
+    },
+    "locationContext": "Ward 4 West",
+    "isCritical": false
+  },
+  {
+    "id": "B066",
+    "language": "Hinglish",
+    "title": "Light nahi aa rahi",
+    "description": "Kal raat se hamare area mein power cut hai.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 1",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B067",
+    "language": "Hinglish",
+    "title": "Pani supply band",
+    "description": "Bina bataye pani band kar diya, pareshani ho rahi hai.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 1",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B068",
+    "language": "Hinglish",
+    "title": "Kachra uthao",
+    "description": "Nala overflow kar raha hai, bohot gandagi hai.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 1",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B069",
+    "language": "Hinglish",
+    "title": "Sadak toot gayi",
+    "description": "Barish ki wajah se road pe bohot gaddhe ho gaye hain.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 1",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B070",
+    "language": "Hinglish",
+    "title": "Gutter open hai",
+    "description": "Main road pe gutter ka dhakkan nahi hai, dangerous hai.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 1",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B071",
+    "language": "Hinglish",
+    "title": "Light nahi aa rahi",
+    "description": "Kal raat se hamare area mein power cut hai.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 69",
+      "ward": "Ward 4",
+      "zone": "South"
+    },
+    "locationContext": "Ward 4 South",
+    "isCritical": false
+  },
+  {
+    "id": "B072",
+    "language": "Hinglish",
+    "title": "Pani supply band",
+    "description": "Bina bataye pani band kar diya, pareshani ho rahi hai.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 69",
+      "ward": "Ward 4",
+      "zone": "South"
+    },
+    "locationContext": "Ward 4 South",
+    "isCritical": false
+  },
+  {
+    "id": "B073",
+    "language": "Hinglish",
+    "title": "Kachra uthao",
+    "description": "Nala overflow kar raha hai, bohot gandagi hai.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 69",
+      "ward": "Ward 4",
+      "zone": "South"
+    },
+    "locationContext": "Ward 4 South",
+    "isCritical": false
+  },
+  {
+    "id": "B074",
+    "language": "Hinglish",
+    "title": "Sadak toot gayi",
+    "description": "Barish ki wajah se road pe bohot gaddhe ho gaye hain.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 69",
+      "ward": "Ward 4",
+      "zone": "South"
+    },
+    "locationContext": "Ward 4 South",
+    "isCritical": false
+  },
+  {
+    "id": "B075",
+    "language": "Hinglish",
+    "title": "Gutter open hai",
+    "description": "Main road pe gutter ka dhakkan nahi hai, dangerous hai.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 69",
+      "ward": "Ward 4",
+      "zone": "South"
+    },
+    "locationContext": "Ward 4 South",
+    "isCritical": false
+  },
+  {
+    "id": "B076",
+    "language": "Hinglish",
+    "title": "Light nahi aa rahi",
+    "description": "Kal raat se hamare area mein power cut hai.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 50",
+      "ward": "Ward 4",
+      "zone": "East"
+    },
+    "locationContext": "Ward 4 East",
+    "isCritical": false
+  },
+  {
+    "id": "B077",
+    "language": "Hinglish",
+    "title": "Pani supply band",
+    "description": "Bina bataye pani band kar diya, pareshani ho rahi hai.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 50",
+      "ward": "Ward 4",
+      "zone": "East"
+    },
+    "locationContext": "Ward 4 East",
+    "isCritical": false
+  },
+  {
+    "id": "B078",
+    "language": "Hinglish",
+    "title": "Kachra uthao",
+    "description": "Nala overflow kar raha hai, bohot gandagi hai.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 50",
+      "ward": "Ward 4",
+      "zone": "East"
+    },
+    "locationContext": "Ward 4 East",
+    "isCritical": false
+  },
+  {
+    "id": "B079",
+    "language": "Hinglish",
+    "title": "Sadak toot gayi",
+    "description": "Barish ki wajah se road pe bohot gaddhe ho gaye hain.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 50",
+      "ward": "Ward 4",
+      "zone": "East"
+    },
+    "locationContext": "Ward 4 East",
+    "isCritical": false
+  },
+  {
+    "id": "B080",
+    "language": "Hinglish",
+    "title": "Gutter open hai",
+    "description": "Main road pe gutter ka dhakkan nahi hai, dangerous hai.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 50",
+      "ward": "Ward 4",
+      "zone": "East"
+    },
+    "locationContext": "Ward 4 East",
+    "isCritical": false
+  },
+  {
+    "id": "B081",
+    "language": "Hinglish",
+    "title": "Light nahi aa rahi",
+    "description": "Kal raat se hamare area mein power cut hai.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 63",
+      "ward": "Ward 1",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 1 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B082",
+    "language": "Hinglish",
+    "title": "Pani supply band",
+    "description": "Bina bataye pani band kar diya, pareshani ho rahi hai.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 63",
+      "ward": "Ward 1",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 1 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B083",
+    "language": "Hinglish",
+    "title": "Kachra uthao",
+    "description": "Nala overflow kar raha hai, bohot gandagi hai.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 63",
+      "ward": "Ward 1",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 1 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B084",
+    "language": "Hinglish",
+    "title": "Sadak toot gayi",
+    "description": "Barish ki wajah se road pe bohot gaddhe ho gaye hain.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 63",
+      "ward": "Ward 1",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 1 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B085",
+    "language": "Hinglish",
+    "title": "Gutter open hai",
+    "description": "Main road pe gutter ka dhakkan nahi hai, dangerous hai.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 63",
+      "ward": "Ward 1",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 1 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B086",
+    "language": "Hinglish",
+    "title": "Light nahi aa rahi",
+    "description": "Kal raat se hamare area mein power cut hai.",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 11",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": false
+  },
+  {
+    "id": "B087",
+    "language": "Hinglish",
+    "title": "Pani supply band",
+    "description": "Bina bataye pani band kar diya, pareshani ho rahi hai.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 11",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": false
+  },
+  {
+    "id": "B088",
+    "language": "Hinglish",
+    "title": "Kachra uthao",
+    "description": "Nala overflow kar raha hai, bohot gandagi hai.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 11",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": false
+  },
+  {
+    "id": "B089",
+    "language": "Hinglish",
+    "title": "Sadak toot gayi",
+    "description": "Barish ki wajah se road pe bohot gaddhe ho gaye hain.",
+    "expectedCategory": "Roads",
+    "expectedPriority": "Normal",
+    "location": {
+      "address": "Street 11",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": false
+  },
+  {
+    "id": "B090",
+    "language": "Hinglish",
+    "title": "Gutter open hai",
+    "description": "Main road pe gutter ka dhakkan nahi hai, dangerous hai.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Urgent",
+    "location": {
+      "address": "Street 11",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": false
+  },
+  {
+    "id": "B091",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 44",
+      "ward": "Ward 1",
+      "zone": "West"
+    },
+    "locationContext": "Ward 1 West",
+    "isCritical": false
+  },
+  {
+    "id": "B092",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 4",
+      "ward": "Ward 4",
+      "zone": "West"
+    },
+    "locationContext": "Ward 4 West",
+    "isCritical": false
+  },
+  {
+    "id": "B093",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 55",
+      "ward": "Ward 3",
+      "zone": "North"
+    },
+    "locationContext": "Ward 3 North",
+    "isCritical": false
+  },
+  {
+    "id": "B094",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 65",
+      "ward": "Ward 1",
+      "zone": "West"
+    },
+    "locationContext": "Ward 1 West",
+    "isCritical": false
+  },
+  {
+    "id": "B095",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 27",
+      "ward": "Ward 1",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 1 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B096",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 39",
+      "ward": "Ward 5",
+      "zone": "North"
+    },
+    "locationContext": "Ward 5 North",
+    "isCritical": false
+  },
+  {
+    "id": "B097",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 87",
+      "ward": "Ward 4",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 4 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B098",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 18",
+      "ward": "Ward 2",
+      "zone": "South"
+    },
+    "locationContext": "Ward 2 South",
+    "isCritical": false
+  },
+  {
+    "id": "B099",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 96",
+      "ward": "Ward 5",
+      "zone": "North"
+    },
+    "locationContext": "Ward 5 North",
+    "isCritical": false
+  },
+  {
+    "id": "B100",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 99",
+      "ward": "Ward 5",
+      "zone": "North"
+    },
+    "locationContext": "Ward 5 North",
+    "isCritical": false
+  },
+  {
+    "id": "B101",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 1",
+      "ward": "Ward 1",
+      "zone": "West"
+    },
+    "locationContext": "Ward 1 West",
+    "isCritical": false
+  },
+  {
+    "id": "B102",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 23",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": false
+  },
+  {
+    "id": "B103",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 99",
+      "ward": "Ward 2",
+      "zone": "South"
+    },
+    "locationContext": "Ward 2 South",
+    "isCritical": false
+  },
+  {
+    "id": "B104",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 48",
+      "ward": "Ward 5",
+      "zone": "Central"
+    },
+    "locationContext": "Ward 5 Central",
+    "isCritical": false
+  },
+  {
+    "id": "B105",
+    "language": "Other",
+    "title": "Hello",
+    "description": "How do I use this app?",
+    "expectedCategory": "Other",
+    "expectedPriority": "Review",
+    "location": {
+      "address": "Street 85",
+      "ward": "Ward 1",
+      "zone": "East"
+    },
+    "locationContext": "Ward 1 East",
+    "isCritical": false
+  },
+  {
+    "id": "B106",
+    "language": "English",
+    "title": "Transformer blast",
+    "description": "The transformer near the school exploded and wires are burning on the ground. Fire hazard!",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 68",
+      "ward": "Ward 3",
+      "zone": "North"
+    },
+    "locationContext": "Ward 3 North",
+    "isCritical": true
+  },
+  {
+    "id": "B107",
+    "language": "Hindi",
+    "title": "इमारत गिर रही है",
+    "description": "अस्पताल के पास की पुरानी इमारत ढहने वाली है, बहुत खतरा है!",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 68",
+      "ward": "Ward 3",
+      "zone": "North"
+    },
+    "locationContext": "Ward 3 North",
+    "isCritical": true
+  },
+  {
+    "id": "B108",
+    "language": "Hinglish",
+    "title": "Poisonous water",
+    "description": "Pipeline se kaala paani aur chemicals aa rahe hain, log bimar ho gaye.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 68",
+      "ward": "Ward 3",
+      "zone": "North"
+    },
+    "locationContext": "Ward 3 North",
+    "isCritical": true
+  },
+  {
+    "id": "B109",
+    "language": "English",
+    "title": "Massive sewage flood",
+    "description": "Sewage water has entered houses, extreme health risk for everyone here.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 68",
+      "ward": "Ward 3",
+      "zone": "North"
+    },
+    "locationContext": "Ward 3 North",
+    "isCritical": true
+  },
+  {
+    "id": "B110",
+    "language": "Hinglish",
+    "title": "Bridge falling",
+    "description": "Flyover mein crack aa gaya hai aur ek hissa toot ke gir gaya.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 68",
+      "ward": "Ward 3",
+      "zone": "North"
+    },
+    "locationContext": "Ward 3 North",
+    "isCritical": true
+  },
+  {
+    "id": "B111",
+    "language": "English",
+    "title": "Transformer blast",
+    "description": "The transformer near the school exploded and wires are burning on the ground. Fire hazard!",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 76",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": true
+  },
+  {
+    "id": "B112",
+    "language": "Hindi",
+    "title": "इमारत गिर रही है",
+    "description": "अस्पताल के पास की पुरानी इमारत ढहने वाली है, बहुत खतरा है!",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 76",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": true
+  },
+  {
+    "id": "B113",
+    "language": "Hinglish",
+    "title": "Poisonous water",
+    "description": "Pipeline se kaala paani aur chemicals aa rahe hain, log bimar ho gaye.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 76",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": true
+  },
+  {
+    "id": "B114",
+    "language": "English",
+    "title": "Massive sewage flood",
+    "description": "Sewage water has entered houses, extreme health risk for everyone here.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 76",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": true
+  },
+  {
+    "id": "B115",
+    "language": "Hinglish",
+    "title": "Bridge falling",
+    "description": "Flyover mein crack aa gaya hai aur ek hissa toot ke gir gaya.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 76",
+      "ward": "Ward 5",
+      "zone": "South"
+    },
+    "locationContext": "Ward 5 South",
+    "isCritical": true
+  },
+  {
+    "id": "B116",
+    "language": "English",
+    "title": "Transformer blast",
+    "description": "The transformer near the school exploded and wires are burning on the ground. Fire hazard!",
+    "expectedCategory": "Electricity",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 67",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": true
+  },
+  {
+    "id": "B117",
+    "language": "Hindi",
+    "title": "इमारत गिर रही है",
+    "description": "अस्पताल के पास की पुरानी इमारत ढहने वाली है, बहुत खतरा है!",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 67",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": true
+  },
+  {
+    "id": "B118",
+    "language": "Hinglish",
+    "title": "Poisonous water",
+    "description": "Pipeline se kaala paani aur chemicals aa rahe hain, log bimar ho gaye.",
+    "expectedCategory": "Water Supply",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 67",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": true
+  },
+  {
+    "id": "B119",
+    "language": "English",
+    "title": "Massive sewage flood",
+    "description": "Sewage water has entered houses, extreme health risk for everyone here.",
+    "expectedCategory": "Sanitation",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 67",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": true
+  },
+  {
+    "id": "B120",
+    "language": "Hinglish",
+    "title": "Bridge falling",
+    "description": "Flyover mein crack aa gaya hai aur ek hissa toot ke gir gaya.",
+    "expectedCategory": "Public Safety",
+    "expectedPriority": "Critical",
+    "location": {
+      "address": "Street 67",
+      "ward": "Ward 5",
+      "zone": "East"
+    },
+    "locationContext": "Ward 5 East",
+    "isCritical": true
+  }
+]
