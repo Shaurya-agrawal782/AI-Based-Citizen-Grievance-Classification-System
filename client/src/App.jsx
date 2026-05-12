@@ -20,6 +20,7 @@ import TrackTicket from './pages/TrackTicket';
 import OmniAccess from './pages/OmniAccess';
 import WhatsAppDemo from './pages/WhatsAppDemo';
 import IVRDemo from './pages/IVRDemo';
+import NotFound from './pages/NotFound';
 import './index.css';
 
 function ProtectedRoute({ children, roles }) {
@@ -89,8 +90,8 @@ function AppRoutes() {
         <ProtectedRoute roles={['admin']}><Navbar /><TaxonomyStudio /></ProtectedRoute>
       } />
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Fallback for truly invalid routes */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
     <AIAssistant />
     </>

@@ -42,7 +42,7 @@ export default function QRZones() {
 
         <motion.div className="animate-card-grid" variants={cardStagger} {...pageRevealProps(shouldReduceMotion)} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: '2rem' }}>
           {qrZones.map((zone) => {
-            const qrUrl = typeof window !== 'undefined' ? `${window.location.origin}/qr-report/${zone.zoneId}` : `https://civictrust.vercel.app/qr-report/${zone.zoneId}`;
+            const qrUrl = typeof window !== 'undefined' ? `${window.location.origin}/qr-report/${zone.zoneId}` : `https://civictrust-app.onrender.com/qr-report/${zone.zoneId}`;
 
             const handleDownloadQR = () => {
               const canvas = document.getElementById(`qr-${zone.zoneId}`);
