@@ -11,10 +11,11 @@ export default function QRZones() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div className="page-wrapper" style={{ background: 'var(--surface-container-low)', minHeight: '100vh' }}>
+    <div className="page-wrapper page-shell app-warm-bg">
       <Navbar />
-      <div className="container" style={{ padding: '4rem 2rem', maxWidth: '1200px' }}>
+      <div className="container page-content" style={{ maxWidth: '1200px' }}>
         <motion.div className="animate-page-hero" variants={heroReveal} {...pageRevealProps(shouldReduceMotion)} style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <div className="badge badge-ai" style={{ marginBottom: '1rem' }}>Smart Deployment Layer</div>
           <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '1rem', color: 'var(--on-surface)' }}>QR Zone Reporting</h1>
           <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', maxWidth: '650px', margin: '0 auto', lineHeight: 1.6 }}>
             Deploy QR posters across schools, hospitals, markets and ward offices so citizens can report issues with location and officer context auto-filled.
@@ -22,13 +23,13 @@ export default function QRZones() {
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center', marginTop: '2rem' }}>
             {['5 Active QR Zones', '3 Wards Covered', 'Location Auto-Mapped', 'Officer Context Enabled'].map((chip, idx) => (
-              <span key={idx} style={{ padding: '0.5rem 1rem', background: 'var(--primary-container)', color: 'var(--on-primary-container)', borderRadius: 'var(--radius-full)', fontSize: '0.875rem', fontWeight: 600 }}>
+              <span key={idx} className="badge badge-in-progress" style={{ padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)', fontSize: '0.875rem', fontWeight: 700 }}>
                 {chip}
               </span>
             ))}
           </div>
 
-          <div style={{ marginTop: '3rem', padding: '1.5rem', background: 'white', borderRadius: 'var(--radius-xl)', border: '1px solid var(--surface-container)', boxShadow: 'var(--shadow-sm)', display: 'inline-flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div className="glass-card" style={{ marginTop: '3rem', padding: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 700 }}><QrCode size={20} /> Scan QR</div>
             <span className="material-symbols-outlined" style={{ color: 'var(--outline)' }}>arrow_right_alt</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 700 }}><MapPin size={20} /> Location Detected</div>
@@ -59,7 +60,7 @@ export default function QRZones() {
 
             return (
               <motion.div key={zone.zoneId} className="animate-card" variants={cardReveal}>
-                <div className="card premium-card-hover qr-poster-hover" style={{ overflow: 'hidden', display: 'flex', flexWrap: 'wrap', padding: 0, height: '100%' }}>
+                <div className="glass-card premium-card-hover qr-poster-hover" style={{ overflow: 'hidden', display: 'flex', flexWrap: 'wrap', padding: 0, height: '100%' }}>
                 {/* Left: Poster Header / QR */}
                 <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', background: 'var(--surface-container-lowest)', borderRight: '1px solid var(--surface-container)' }}>
                   <div style={{ background: 'var(--primary)', color: 'white', padding: '1rem', textAlign: 'center' }}>
@@ -77,7 +78,7 @@ export default function QRZones() {
                 </div>
 
                 {/* Right: Details & Actions */}
-                <div style={{ flex: '1 1 260px', padding: '1.5rem', display: 'flex', flexDirection: 'column', background: 'white' }}>
+                <div style={{ flex: '1 1 260px', padding: '1.5rem', display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.86)' }}>
                   <h4 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--on-surface)' }}>{zone.zoneName}</h4>
 
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
@@ -101,7 +102,7 @@ export default function QRZones() {
                   </div>
 
                   <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <Link to={`/qr-report/${zone.zoneId}`} className="btn btn-primary premium-button-hover soft-glow-hover" style={{ width: '100%', justifyContent: 'center' }}>Open QR Report (Demo)</Link>
+                    <Link to={`/qr-report/${zone.zoneId}`} className="btn btn-primary civic-gradient-button premium-button-hover soft-glow-hover" style={{ width: '100%', justifyContent: 'center' }}>Open QR Report (Demo)</Link>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button onClick={handleCopyLink} className="btn btn-outline btn-sm premium-button-hover" style={{ flex: 1, justifyContent: 'center' }} title="Copy QR Link">
                         <LinkIcon size={16} /> Copy Link

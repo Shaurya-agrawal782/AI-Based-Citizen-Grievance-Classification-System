@@ -50,7 +50,7 @@ export default function Navbar() {
   const toggleProfile = () => { setShowProfile(!showProfile); setShowNotifications(false); setShowHelp(false); };
 
   return (
-    <header className="navbar" style={{ position: 'sticky', top: 0, zIndex: 1000, background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--surface-container)' }}>
+    <header className="navbar" style={{ position: 'sticky', top: 0, zIndex: 1000, background: 'rgba(255, 255, 255, 0.82)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', borderBottom: '1px solid rgba(254,215,170,0.6)', boxShadow: 'var(--shadow-sm)' }}>
       <div className="navbar-inner">
         <Link to={isAdmin ? '/admin' : '/dashboard'} className="navbar-brand">
           <span className="material-symbols-outlined filled">account_balance</span>
@@ -70,13 +70,13 @@ export default function Navbar() {
           <div className="nav-dropdown-wrapper" style={{ position: 'relative' }} ref={smartToolsRef}>
             <button
               className="navbar-link btn-ghost premium-button-hover"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--on-surface)' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--on-surface)', borderRadius: 'var(--radius-full)' }}
               onClick={() => setShowSmartTools(!showSmartTools)}
             >
               Smart Tools <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>expand_more</span>
             </button>
             {showSmartTools && (
-              <div className="nav-dropdown nav-dropdown-enter" style={{ position: 'absolute', top: '100%', left: '0', minWidth: '230px', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-xl)', padding: '0.5rem', boxShadow: 'var(--shadow-xl)', border: '1px solid var(--surface-container)', zIndex: 1000, marginTop: '0.5rem' }}>
+              <div className="nav-dropdown nav-dropdown-enter" style={{ position: 'absolute', top: '100%', left: '0', minWidth: '230px', background: 'rgba(255,255,255,0.95)', borderRadius: 'var(--radius-xl)', padding: '0.5rem', boxShadow: 'var(--shadow-xl)', border: '1px solid rgba(254,215,170,0.72)', zIndex: 1000, marginTop: '0.5rem', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
                 <Link to="/qr-zones" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--primary)' }}>qr_code_scanner</span>
                   QR Zones

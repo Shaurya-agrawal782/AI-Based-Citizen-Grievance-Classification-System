@@ -179,7 +179,8 @@ export default function NewGrievance() {
   // Success screen
   if (success) {
     return (
-      <div className="container" style={{ padding: '4rem 2rem', maxWidth: '600px', textAlign: 'center' }}>
+      <div className="page-shell app-warm-bg">
+      <div className="container page-content" style={{ maxWidth: '600px', textAlign: 'center' }}>
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 15 }}>
           <div style={{
             width: '5rem', height: '5rem', borderRadius: '50%',
@@ -194,7 +195,7 @@ export default function NewGrievance() {
         <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '1.125rem' }}>
           Your complaint has been filed and is being processed by our AI system.
         </p>
-        <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', textAlign: 'left' }}>
+        <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem', textAlign: 'left' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <span style={{ fontWeight: 600 }}>Tracking ID</span>
             <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.125rem' }}>{success.trackingId}</span>
@@ -213,17 +214,20 @@ export default function NewGrievance() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button onClick={() => navigate('/dashboard')} className="btn btn-secondary">Go to Dashboard</button>
-          <button onClick={() => { setSuccess(null); setStep(1); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline">File Another</button>
+          <button onClick={() => navigate('/dashboard')} className="btn btn-secondary civic-gradient-button">Go to Dashboard</button>
+          <button onClick={() => { setSuccess(null); setStep(1); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">File Another</button>
         </div>
+      </div>
       </div>
     );
   }
 
   return (
-    <div className="container" style={{ padding: '2rem', maxWidth: '1200px' }}>
+    <div className="page-shell app-warm-bg">
+    <div className="container page-content" style={{ maxWidth: '1200px' }}>
       {/* Page Header */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '2rem' }}>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="warm-accent-card" style={{ marginBottom: '2rem', padding: '2rem' }}>
+        <div className="badge badge-ai" style={{ marginBottom: '0.85rem' }}>Guided Civic Intake</div>
         <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>New Grievance</h1>
         <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)' }}>
           Please provide the details of your issue to help us route it to the appropriate department.
@@ -253,7 +257,7 @@ export default function NewGrievance() {
       {/* Main Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '2rem', alignItems: 'start' }}>
         {/* Form */}
-        <div className="card" style={{ padding: '2rem' }}>
+        <div className="glass-card" style={{ padding: '2rem' }}>
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
@@ -509,14 +513,14 @@ export default function NewGrievance() {
             {step < 3 ? (
               <button
                 onClick={() => setStep(s => s + 1)}
-                className="btn btn-secondary"
+                className="btn btn-secondary civic-gradient-button"
                 disabled={!canProceed()}
               >
                 Continue to {step === 1 ? 'Details' : 'Review'}
                 <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>arrow_forward</span>
               </button>
             ) : (
-              <button onClick={handleSubmit} className="btn btn-primary" disabled={loading || !form.privacyConsent}>
+              <button onClick={handleSubmit} className="btn btn-primary civic-gradient-button" disabled={loading || !form.privacyConsent}>
                 {loading ? <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }} /> : (
                   <>Submit Grievance <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span></>
                 )}
@@ -528,7 +532,7 @@ export default function NewGrievance() {
         {/* AI Sidebar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', position: 'sticky', top: '80px' }}>
           {/* AI Classification Card */}
-          <div className="card" style={{ position: 'relative', overflow: 'hidden', padding: '1.5rem' }}>
+          <div className="glass-card premium-card-hover" style={{ position: 'relative', overflow: 'hidden', padding: '1.5rem' }}>
             <div style={{
               position: 'absolute', top: '-2rem', right: '-2rem', width: '6rem', height: '6rem',
               background: 'var(--ai-gradient)', borderRadius: '50%', filter: 'blur(40px)', opacity: 0.15, pointerEvents: 'none',
@@ -632,7 +636,7 @@ export default function NewGrievance() {
           </div>
 
           {/* Guidelines Card */}
-          <div className="card-flat" style={{ padding: '1.5rem', borderRadius: 'var(--radius-xl)' }}>
+          <div className="soft-card" style={{ padding: '1.5rem', borderRadius: 'var(--radius-xl)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
               <span className="material-symbols-outlined" style={{ color: 'var(--on-tertiary-container)' }}>info</span>
               <h3 style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Submission Guidelines</h3>
@@ -652,6 +656,7 @@ export default function NewGrievance() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

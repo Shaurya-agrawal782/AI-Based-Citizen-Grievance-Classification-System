@@ -72,14 +72,14 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div className="page-shell app-warm-bg" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="spinner" style={{ width: '3rem', height: '3rem' }}></div>
       </div>
     );
   }
 
   return (
-    <div className="admin-layout">
+    <div className="admin-layout page-shell app-warm-bg">
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
@@ -124,12 +124,13 @@ export default function AdminDashboard() {
       <main className="admin-content">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div className="warm-accent-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem', padding: '2rem' }}>
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Overview</h1>
-              <p style={{ color: 'var(--on-surface-variant)' }}>Real-time monitoring of citizen submissions and automated intelligence routing queues.</p>
+              <div className="badge badge-ai" style={{ marginBottom: '0.85rem' }}>CivicTrust Command Center</div>
+              <h1 style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.45rem' }}>Overview</h1>
+              <p style={{ color: 'var(--on-surface-variant)', fontSize: '1.05rem', maxWidth: '720px' }}>Monitor tickets, SLA status and recent civic grievance activity.</p>
             </div>
-            <button className="btn btn-outline">
+            <button className="btn btn-outline warm-outline-button">
               <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>download</span>
               Export Summary
             </button>
@@ -148,7 +149,7 @@ export default function AdminDashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className={`stat-card ${stat.variant}`}
+                className={`stat-card premium-card-hover ${stat.variant}`}
               >
                 <div className="stat-icon">
                   <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>{stat.icon}</span>
@@ -164,11 +165,9 @@ export default function AdminDashboard() {
             <Link to="/admin/map" style={{ textDecoration: 'none' }}>
               <motion.div
                 whileHover={{ y: -5, boxShadow: '0 10px 40px rgba(14,165,164,0.2)' }}
+                className="warm-accent-card"
                 style={{
                   padding: '2rem',
-                  background: 'linear-gradient(135deg, var(--primary) 0%, #1e40af 100%)',
-                  borderRadius: 'var(--radius-lg)',
-                  color: 'white',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
@@ -176,20 +175,21 @@ export default function AdminDashboard() {
                   overflow: 'hidden'
                 }}
               >
-                <div style={{ position: 'absolute', right: '-10%', top: '-20%', opacity: 0.1 }}>
+                <div style={{ position: 'absolute', right: '-10%', top: '-20%', opacity: 0.07, color: 'var(--primary)' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '15rem' }}>map</span>
                 </div>
                 <div>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Geospatial Command Center</h2>
-                  <p style={{ opacity: 0.9, maxWidth: '500px' }}>Access real-time intelligence mapping and cluster analysis. Visualize high-priority hotspots across the city.</p>
-                  <button className="btn btn-secondary" style={{ marginTop: '1.5rem', background: 'white', color: 'var(--primary)' }}>
+                  <div className="badge badge-in-progress" style={{ marginBottom: '0.75rem' }}>Live Civic Intelligence</div>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 900, marginBottom: '0.5rem', color: 'var(--on-surface)' }}>Geospatial Command Center</h2>
+                  <p style={{ color: 'var(--on-surface-variant)', maxWidth: '500px' }}>Access real-time intelligence mapping and cluster analysis. Visualize high-priority hotspots across the city.</p>
+                  <button className="btn btn-primary civic-gradient-button" style={{ marginTop: '1.5rem' }}>
                     Launch Live Map
                   </button>
                 </div>
                 <div style={{ display: 'flex', gap: '2rem' }}>
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 800 }}>{stats?.highPriority || 0}</p>
-                    <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', opacity: 0.8 }}>Critical Hotspots</p>
+                    <p style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary)' }}>{stats?.highPriority || 0}</p>
+                    <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Critical Hotspots</p>
                   </div>
                 </div>
               </motion.div>
@@ -274,7 +274,7 @@ export default function AdminDashboard() {
                   fontWeight: 600,
                   background: filter.status === f.value ? 'var(--primary)' : 'var(--surface-container)',
                   color: filter.status === f.value ? 'white' : 'var(--on-surface-variant)',
-                  border: 'none',
+                  border: filter.status === f.value ? '1px solid var(--primary)' : '1px solid rgba(254,215,170,0.8)',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -304,7 +304,7 @@ export default function AdminDashboard() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="grievance-item"
+                  className="grievance-item premium-card-hover"
                   onClick={() => navigate(`/admin/grievance/${g._id}`)}
                 >
                   <div className={`grievance-icon ${catInfo.class}`}>
@@ -343,12 +343,12 @@ export default function AdminDashboard() {
                     {g.aiClassification?.suggestedDepartment && (
                       <div style={{
                         padding: '0.5rem 0.75rem',
-                        background: 'var(--surface-container-low)',
+                        background: 'rgba(255,255,255,0.72)',
                         borderRadius: 'var(--radius-md)',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.5rem',
-                        border: g.aiClassification.isUrgent ? '1px solid var(--error)' : '1px solid transparent'
+                        border: g.aiClassification.isUrgent ? '1px solid var(--error)' : '1px solid rgba(226,232,240,0.7)'
                       }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: g.aiClassification.isUrgent ? 'var(--error)' : 'var(--on-surface-variant)' }}>
                           {g.aiClassification.isUrgent ? 'priority_high' : 'smart_toy'}

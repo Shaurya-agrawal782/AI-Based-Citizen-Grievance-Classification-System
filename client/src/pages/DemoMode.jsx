@@ -54,11 +54,11 @@ export default function DemoMode() {
   };
 
   if (loading) {
-    return <div className="container" style={{ padding: '4rem', textAlign: 'center' }}><div className="spinner" /></div>;
+    return <div className="page-shell app-warm-bg"><div className="container page-content" style={{ textAlign: 'center' }}><div className="spinner" /></div></div>;
   }
 
   if (!demoData) {
-    return <div className="container" style={{ padding: '4rem', textAlign: 'center' }}>Demo data not found. Please ensure backend is running.</div>;
+    return <div className="page-shell app-warm-bg"><div className="container page-content" style={{ textAlign: 'center' }}>Demo data not found. Please ensure backend is running.</div></div>;
   }
 
   const { demoCitizenComplaint, demoAIAnalysis, demoDuplicateCluster, demoAssignedAuthority, demoBenchmarkSummary } = demoData;
@@ -76,11 +76,12 @@ export default function DemoMode() {
   ];
 
   return (
-    <div className="container" style={{ padding: '2rem', maxWidth: '1200px' }}>
+    <div className="page-shell app-warm-bg">
+    <div className="container page-content" style={{ maxWidth: '1200px' }}>
 
       {/* Hero */}
       <motion.div className="animate-page-hero" variants={heroReveal} {...pageRevealProps(shouldReduceMotion)} style={{ textAlign: 'center', marginBottom: '3rem' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(14,165,164,0.1)', color: 'var(--primary)', padding: '0.5rem 1rem', borderRadius: '999px', fontWeight: 700, fontSize: '0.875rem', marginBottom: '1rem' }}>
+        <div className="badge badge-ai" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', marginBottom: '1rem' }}>
           <Play size={16} fill="currentColor" /> Live Demo Mode
         </div>
         <h1 style={{ fontSize: '3rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '1rem' }}>CivicTrust AI Demo Mode</h1>
@@ -95,7 +96,7 @@ export default function DemoMode() {
             whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
             whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
             onClick={runDemo}
-            className="btn btn-primary btn-lg premium-button-hover"
+            className="btn btn-primary btn-lg civic-gradient-button premium-button-hover"
             style={{ fontSize: '1.125rem', padding: '1rem 2rem', boxShadow: '0 8px 16px rgba(14,165,164,0.2)' }}
           >
             <Play size={20} /> Run Full AI Demo
@@ -133,7 +134,7 @@ export default function DemoMode() {
               }
 
               return (
-                <div key={i} className="premium-card-hover" style={{ padding: '1rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-md)', border: `1px solid ${isCurrent ? 'var(--primary)' : 'var(--outline-variant)'}`, opacity: isFuture ? 0.6 : 1, transition: 'all 0.3s' }}>
+                <div key={i} className="soft-card premium-card-hover" style={{ padding: '1rem', borderRadius: 'var(--radius-md)', border: `1px solid ${isCurrent ? 'var(--primary)' : 'rgba(226,232,240,0.7)'}`, opacity: isFuture ? 0.6 : 1, transition: 'all 0.3s' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                     <div style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: bgColor, color: color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {isPast ? <Check size={14} /> : <Icon size={14} />}
@@ -158,7 +159,7 @@ export default function DemoMode() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
               {/* Complaint Card */}
-              <div className="card premium-card-hover" style={{ padding: '2rem' }}>
+              <div className="glass-card premium-card-hover" style={{ padding: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Citizen Input</h3>
                   <span className="badge" style={{ background: 'var(--primary-container)', color: 'var(--on-primary-container)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -181,7 +182,7 @@ export default function DemoMode() {
               </div>
 
               {/* AI Decision Card */}
-              <div className="card premium-card-hover" style={{ padding: '2rem', border: '2px solid var(--ai-teal)' }}>
+              <div className="glass-card premium-card-hover" style={{ padding: '2rem', border: '2px solid var(--ai-teal)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
                   <div style={{ padding: '0.5rem', background: 'var(--ai-gradient)', borderRadius: '8px', color: 'white' }}>
                     <Zap size={20} />
@@ -229,7 +230,7 @@ export default function DemoMode() {
               </div>
 
               {/* Human Review Mini Card */}
-              <div className="card premium-card-hover" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b' }}>
+              <div className="soft-card premium-card-hover" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b' }}>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
                   <AlertCircle size={18} color="#f59e0b" />
                   <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Human Review Fallback Example</h3>
@@ -252,7 +253,7 @@ export default function DemoMode() {
 
               {/* Officer Action Panel */}
               {activeStepIndex >= 5 && (
-                <motion.div initial={shouldReduceMotion ? false : { opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="card premium-card-hover" style={{ padding: '2rem' }}>
+                <motion.div initial={shouldReduceMotion ? false : { opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="glass-card premium-card-hover" style={{ padding: '2rem' }}>
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <UserCheck size={20} color="var(--primary)" /> Officer Action Panel
                   </h3>
@@ -339,7 +340,7 @@ export default function DemoMode() {
               </div>
 
               {/* Benchmark Metrics */}
-              <div className="card-flat premium-card-hover" style={{ padding: '1.5rem', borderRadius: 'var(--radius-lg)' }}>
+              <div className="soft-card premium-card-hover" style={{ padding: '1.5rem', borderRadius: 'var(--radius-lg)' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <ShieldCheck size={18} color="#10b981" /> Benchmark Performance
                 </h3>
@@ -419,14 +420,14 @@ export default function DemoMode() {
         </div>
         <motion.div className="animate-card-grid" variants={cardStagger} {...pageRevealProps(shouldReduceMotion)} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
           <motion.div className="animate-card" variants={cardReveal}>
-          <div className="card premium-card-hover" style={{ padding: '2rem', height: '100%' }}>
+          <div className="glass-card premium-card-hover" style={{ padding: '2rem', height: '100%' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: 'var(--primary)', marginBottom: '1rem', display: 'block' }}>receipt_long</span>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.5rem' }}>Citizen Receipt</h3>
             <p style={{ fontSize: '0.9375rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>Every complaint gets a trackable receipt with SLA, officer and status. Citizens can download or share it in one click.</p>
           </div>
           </motion.div>
           <motion.div className="animate-card" variants={cardReveal}>
-          <div className="card premium-card-hover" style={{ padding: '2rem', height: '100%' }}>
+          <div className="glass-card premium-card-hover" style={{ padding: '2rem', height: '100%' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: '#8b5cf6', marginBottom: '1rem', display: 'block' }}>balance</span>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.5rem' }}>Workload Balancer</h3>
             <p style={{ fontSize: '0.9375rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>Admin can see officer workload and make smarter assignment decisions to prevent burnout and SLA breaches.</p>
@@ -436,7 +437,7 @@ export default function DemoMode() {
       </div>
 
       {/* Smart Deployment Layer */}
-      <div style={{ marginTop: '5rem', marginBottom: '2rem', padding: '3rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-xl)' }}>
+      <div className="warm-accent-card" style={{ marginTop: '5rem', marginBottom: '2rem', padding: '3rem', borderRadius: 'var(--radius-xl)' }}>
         <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h2 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '1rem', color: 'var(--on-surface)' }}>Smart Deployment Layer</h2>
           <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', maxWidth: '650px', margin: '0 auto', lineHeight: 1.6 }}>
@@ -447,7 +448,7 @@ export default function DemoMode() {
         <motion.div className="animate-card-grid" variants={cardStagger} {...pageRevealProps(shouldReduceMotion)} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
 
           <motion.div className="animate-card" variants={cardReveal}>
-          <div className="card premium-card-hover" style={{ padding: '2.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-2xl)', height: '100%' }}>
+          <div className="glass-card premium-card-hover" style={{ padding: '2.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-2xl)', height: '100%' }}>
             <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(14,165,164,0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
               <QrCode size={32} />
             </div>
@@ -462,7 +463,7 @@ export default function DemoMode() {
           </motion.div>
 
           <motion.div className="animate-card" variants={cardReveal}>
-          <div className="card premium-card-hover" style={{ padding: '2.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-2xl)', height: '100%' }}>
+          <div className="glass-card premium-card-hover" style={{ padding: '2.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-2xl)', height: '100%' }}>
             <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'var(--ai-gradient)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
               <Bot size={32} />
             </div>
@@ -477,7 +478,7 @@ export default function DemoMode() {
           </motion.div>
 
           <motion.div className="animate-card" variants={cardReveal}>
-          <div className="card premium-card-hover" style={{ padding: '2.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-2xl)', height: '100%' }}>
+          <div className="glass-card premium-card-hover" style={{ padding: '2.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-2xl)', height: '100%' }}>
             <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(16,185,129,0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
               <UserCheck size={32} />
             </div>
@@ -492,7 +493,7 @@ export default function DemoMode() {
           </motion.div>
 
           <motion.div className="animate-card" variants={cardReveal}>
-          <div className="card premium-card-hover" style={{ padding: '2.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-2xl)', height: '100%' }}>
+          <div className="glass-card premium-card-hover" style={{ padding: '2.5rem', textAlign: 'center', display: 'flex', flexDirection: 'column', borderRadius: 'var(--radius-2xl)', height: '100%' }}>
             <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(139,92,246,0.1)', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '2rem' }}>confirmation_number</span>
             </div>
@@ -508,6 +509,7 @@ export default function DemoMode() {
 
         </motion.div>
       </div>
+    </div>
     </div>
   );
 }

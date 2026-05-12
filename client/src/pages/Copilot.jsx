@@ -21,11 +21,11 @@ export default function Copilot() {
   ];
 
   return (
-    <div className="page-wrapper" style={{ background: 'var(--surface-container-low)', minHeight: '100vh' }}>
+    <div className="page-wrapper page-shell app-warm-bg">
       <Navbar />
-      <div className="container" style={{ padding: '4rem 2rem', maxWidth: '1180px' }}>
+      <div className="container page-content" style={{ maxWidth: '1180px' }}>
         <motion.div className="animate-page-hero" variants={heroReveal} {...pageRevealProps(shouldReduceMotion)} style={{ textAlign: 'center', marginBottom: '2.25rem' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.9rem', borderRadius: '999px', background: 'rgba(14,165,164,0.1)', color: 'var(--primary)', fontWeight: 800, fontSize: '0.8rem', marginBottom: '1rem' }}>
+          <div className="badge badge-ai" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.9rem', marginBottom: '1rem' }}>
             <FileText size={16} /> CivicDraft AI
           </div>
           <h1 style={{ fontSize: 'clamp(2.4rem, 6vw, 4.25rem)', fontWeight: 900, letterSpacing: '-0.045em', lineHeight: 1, marginBottom: '1rem', color: 'var(--on-surface)' }}>
@@ -37,7 +37,7 @@ export default function Copilot() {
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center', marginTop: '2rem' }}>
             {['Citizen Friendly', 'Formal Application', 'Emergency Report', 'Copy Ready'].map((chip) => (
-              <span key={chip} className="premium-card-hover" style={{ padding: '0.55rem 1rem', background: 'white', color: 'var(--primary)', border: '1px solid rgba(14,165,164,0.18)', borderRadius: 'var(--radius-full)', fontSize: '0.875rem', fontWeight: 800, boxShadow: 'var(--shadow-sm)' }}>
+              <span key={chip} className="badge badge-in-progress premium-card-hover" style={{ padding: '0.55rem 1rem', borderRadius: 'var(--radius-full)', fontSize: '0.875rem', fontWeight: 800, boxShadow: 'var(--shadow-sm)' }}>
                 {chip}
               </span>
             ))}
@@ -46,7 +46,7 @@ export default function Copilot() {
 
         <motion.div className="animate-card" variants={cardReveal} {...pageRevealProps(shouldReduceMotion)}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
-            <div style={{ display: 'inline-flex', padding: '0.35rem', borderRadius: '999px', background: 'white', border: '1px solid var(--surface-container)', boxShadow: 'var(--shadow-sm)', gap: '0.35rem', flexWrap: 'wrap' }}>
+            <div className="glass-card" style={{ display: 'inline-flex', padding: '0.35rem', borderRadius: '999px', gap: '0.35rem', flexWrap: 'wrap' }}>
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -77,7 +77,7 @@ export default function Copilot() {
 
           {activeTab === 'citizen' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.5rem' }}>
-              <div style={{ padding: '1.25rem', borderRadius: 'var(--radius-xl)', background: 'linear-gradient(135deg, rgba(30,58,138,0.06), rgba(14,165,164,0.08))', border: '1px solid rgba(14,165,164,0.14)', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+              <div className="warm-accent-card" style={{ padding: '1.25rem', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
                 <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-lg)', background: 'var(--ai-gradient)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <PenLine size={20} />
                 </div>
@@ -92,7 +92,7 @@ export default function Copilot() {
             </div>
           ) : (
             <div style={{ maxWidth: '720px', margin: '0 auto' }}>
-              <div className="card premium-card-hover soft-glow-hover" style={{ padding: '1.5rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--surface-container)' }}>
+              <div className="glass-card premium-card-hover soft-glow-hover" style={{ padding: '1.5rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--surface-container)' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
                   <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-lg)', background: 'rgba(16,185,129,0.12)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <ShieldCheck size={20} />
