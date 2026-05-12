@@ -90,6 +90,7 @@ export default function QRZoneReport() {
           <TicketReceipt
             ticketId="CT-TKT-2026-0001"
             complaintId="CT-2026-0001"
+            source="QR"
             category={zone.defaultDepartmentSuggestion}
             department={zone.defaultDepartmentSuggestion}
             priority="Critical"

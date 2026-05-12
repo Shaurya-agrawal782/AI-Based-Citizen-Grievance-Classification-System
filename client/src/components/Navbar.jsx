@@ -50,7 +50,7 @@ export default function Navbar() {
   const toggleProfile = () => { setShowProfile(!showProfile); setShowNotifications(false); setShowHelp(false); };
 
   return (
-    <header className="navbar" style={{ position: 'sticky', top: 0, zIndex: 1000, background: 'rgba(255, 255, 255, 0.82)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', borderBottom: '1px solid rgba(254,215,170,0.6)', boxShadow: 'var(--shadow-sm)' }}>
+    <header className="navbar" style={{ position: 'sticky', top: 0, zIndex: 1000, background: 'rgba(255, 255, 255, 0.84)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', borderBottom: '1px solid rgba(226,232,240,0.72)', boxShadow: 'var(--shadow-sm)' }}>
       <div className="navbar-inner">
         <Link to={isAdmin ? '/admin' : '/dashboard'} className="navbar-brand">
           <span className="material-symbols-outlined filled">account_balance</span>
@@ -76,20 +76,34 @@ export default function Navbar() {
               Smart Tools <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>expand_more</span>
             </button>
             {showSmartTools && (
-              <div className="nav-dropdown nav-dropdown-enter" style={{ position: 'absolute', top: '100%', left: '0', minWidth: '230px', background: 'rgba(255,255,255,0.95)', borderRadius: 'var(--radius-xl)', padding: '0.5rem', boxShadow: 'var(--shadow-xl)', border: '1px solid rgba(254,215,170,0.72)', zIndex: 1000, marginTop: '0.5rem', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+              <div className="nav-dropdown nav-dropdown-enter" style={{ position: 'absolute', top: '100%', left: '0', minWidth: '260px', background: 'rgba(255,255,255,0.96)', borderRadius: 'var(--radius-xl)', padding: '0.5rem', boxShadow: 'var(--shadow-xl)', border: '1px solid rgba(226,232,240,0.78)', zIndex: 1000, marginTop: '0.5rem', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+                <p style={{ padding: '0.5rem 0.75rem 0.25rem', fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Reporting Tools</p>
                 <Link to="/qr-zones" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--primary)' }}>qr_code_scanner</span>
                   QR Zones
-                </Link>
-                <Link to="/track-ticket" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
-                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--secondary)' }}>confirmation_number</span>
-                  Track Ticket
                 </Link>
                 <Link to="/copilot" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: '#10b981' }}>smart_toy</span>
                   CivicDraft AI
                 </Link>
+                <Link to="/track-ticket" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
+                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--secondary)' }}>confirmation_number</span>
+                  Track Ticket
+                </Link>
+                <Link to="/omni-access" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: 'var(--primary)' }} onClick={() => setShowSmartTools(false)}>
+                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--ai-teal)' }}>hub</span>
+                  OmniAccess
+                </Link>
                 <div style={{ height: '1px', background: 'var(--surface-container)', margin: '0.5rem 0' }} />
+                <p style={{ padding: '0.25rem 0.75rem', fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Demo Channels</p>
+                <Link to="/whatsapp-demo" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: '#128c7e' }} onClick={() => setShowSmartTools(false)}>
+                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>chat</span>
+                  WhatsApp Demo
+                </Link>
+                <Link to="/ivr-demo" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: '#c2410c' }} onClick={() => setShowSmartTools(false)}>
+                  <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>call</span>
+                  IVR Demo
+                </Link>
                 <Link to="/demo-mode" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: 'var(--ai-teal)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>play_circle</span>
                   Demo Mode

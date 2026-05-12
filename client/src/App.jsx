@@ -17,6 +17,9 @@ import QRZoneReport from './pages/QRZoneReport';
 import QRZones from './pages/QRZones';
 import Copilot from './pages/Copilot';
 import TrackTicket from './pages/TrackTicket';
+import OmniAccess from './pages/OmniAccess';
+import WhatsAppDemo from './pages/WhatsAppDemo';
+import IVRDemo from './pages/IVRDemo';
 import './index.css';
 
 function ProtectedRoute({ children, roles }) {
@@ -51,6 +54,9 @@ function AppRoutes() {
       <Route path="/qr-report/:zoneId" element={<QRZoneReport />} />
       <Route path="/copilot" element={<Copilot />} />
       <Route path="/track-ticket" element={<TrackTicket />} />
+      <Route path="/omni-access" element={<OmniAccess />} />
+      <Route path="/whatsapp-demo" element={<WhatsAppDemo />} />
+      <Route path="/ivr-demo" element={<IVRDemo />} />
 
       {/* Citizen Routes */}
       <Route path="/dashboard" element={

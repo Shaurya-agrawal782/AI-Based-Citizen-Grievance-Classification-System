@@ -17,13 +17,14 @@ function CopyBtn({ text, label }) {
   );
 }
 
-const PRIORITY_COLOR = { Critical: '#ef4444', High: '#f97316', Medium: '#f59e0b', Low: '#10b981' };
+const PRIORITY_COLOR = { Critical: '#ef4444', Urgent: '#ef4444', High: '#f97316', Medium: '#f59e0b', Low: '#10b981' };
 const STATUS_COLOR   = {
   'Ticket Created': '#8b5cf6',
   'AI Classified': 'var(--primary)',
   'SLA Assigned': '#f59e0b',
   'Officer Assigned': '#10b981',
   'Field Team Dispatch Pending': '#f97316',
+  'Registered': '#0EA5A4',
   'Resolution Awaited': '#64748b',
 };
 
@@ -37,6 +38,7 @@ export default function TicketReceipt({
   sla         = '4 hours',
   assignedOfficer = 'Rahul Verma',
   officerRole     = 'Ward Electricity Officer',
+  source,
   ward   = 'Ward 1',
   zone   = 'North',
   submittedAt = new Date().toISOString(),
@@ -56,6 +58,7 @@ export default function TicketReceipt({
       '',
       `Ticket ID:        ${ticketId}`,
       `Complaint ID:     ${complaintId}`,
+      source ? `Source:           ${source}` : null,
       `Category:         ${category}`,
       `Department:       ${department}`,
       `Priority:         ${priority}`,
@@ -72,7 +75,7 @@ export default function TicketReceipt({
       '',
       '========================================',
       'Thank you for using CivicTrust AI.',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const url = URL.createObjectURL(new Blob([lines], { type: 'text/plain' }));
     const a = document.createElement('a');
@@ -95,19 +98,25 @@ export default function TicketReceipt({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
           <span className="badge" style={{ background: `${priorityColor}20`, color: priorityColor, fontWeight: 700, padding: '0.375rem 0.875rem' }}>{priority} Priority</span>
           <span className="badge" style={{ background: `${statusColor}15`, color: statusColor, fontWeight: 600, padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>{status}</span>
+          {source && (
+            <span className="badge" style={{ background: 'rgba(14,165,164,0.1)', color: 'var(--ai-teal)', borderColor: 'rgba(14,165,164,0.2)', fontWeight: 700, padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>
+              Source: {source}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Details grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
         {[
+          source ? { label: 'Source', value: source } : null,
           { label: 'Category',         value: category },
           { label: 'Department',        value: department },
           { label: 'SLA Window',        value: sla },
           { label: 'Assigned Officer',  value: assignedOfficer },
           { label: 'Officer Role',      value: officerRole },
           { label: 'Ward / Zone',       value: `${ward} ${zone}` },
-        ].map(({ label, value }) => (
+        ].filter(Boolean).map(({ label, value }) => (
           <div key={label} style={{ padding: '0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)' }}>
             <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{label}</p>
             <p style={{ fontSize: '0.9375rem', fontWeight: 600 }}>{value}</p>

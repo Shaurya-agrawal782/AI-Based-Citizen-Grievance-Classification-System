@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Mic, Zap, ShieldCheck, Clock, UserCheck, Play, Layers, CheckCircle2, AlertCircle, AlertTriangle, FileText, Check, QrCode, Bot } from 'lucide-react';
+import { Mic, Zap, ShieldCheck, Clock, UserCheck, Play, Layers, CheckCircle2, AlertCircle, AlertTriangle, FileText, Check, QrCode, Bot, MessageCircle, PhoneCall, Globe2 } from 'lucide-react';
 import PitchScriptCard from '../components/demo/PitchScriptCard';
 import api from '../services/api';
 import GrievanceReceipt from '../components/citizen/GrievanceReceipt';
@@ -75,6 +76,30 @@ export default function DemoMode() {
     { title: "Citizen Tracking", icon: CheckCircle2, detail: "Tracking enabled" }
   ];
 
+  const generationAccessCards = [
+    {
+      title: 'Youth / Digital Users',
+      detail: 'Web, QR, voice, chatbot',
+      Icon: Globe2,
+      color: 'var(--primary)',
+      background: 'rgba(30,58,138,0.08)',
+    },
+    {
+      title: 'Middle-age Users',
+      detail: 'WhatsApp-style complaint flow',
+      Icon: MessageCircle,
+      color: '#128c7e',
+      background: 'rgba(18,140,126,0.1)',
+    },
+    {
+      title: 'Elderly Citizens',
+      detail: 'Phone call / keypad IVR complaint flow',
+      Icon: PhoneCall,
+      color: '#c2410c',
+      background: 'rgba(251,146,60,0.16)',
+    },
+  ];
+
   return (
     <div className="page-shell app-warm-bg">
     <div className="container page-content" style={{ maxWidth: '1200px' }}>
@@ -107,6 +132,32 @@ export default function DemoMode() {
       <motion.div className="animate-card" variants={cardReveal} {...pageRevealProps(shouldReduceMotion)}>
         <PitchScriptCard />
       </motion.div>
+
+      <motion.section className="animate-card" variants={cardReveal} {...pageRevealProps(shouldReduceMotion)} style={{ marginTop: '2rem' }}>
+        <div className="warm-accent-card" style={{ padding: '2.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1.5rem', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+            <div>
+              <p className="badge badge-ai" style={{ marginBottom: '0.75rem' }}>Access for Every Generation</p>
+              <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--on-surface)' }}>Access for Every Generation</h2>
+            </div>
+            <Link to="/omni-access" className="btn btn-primary civic-gradient-button premium-button-hover" style={{ borderRadius: 'var(--radius-full)' }}>
+              Explore OmniAccess
+            </Link>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            {generationAccessCards.map(({ title, detail, Icon, color, background }) => (
+              <div key={title} className="glass-card premium-card-hover" style={{ padding: '1.35rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.9rem', background, color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                  <Icon size={22} />
+                </div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 850, marginBottom: '0.35rem' }}>{title}</h3>
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9rem' }}>{detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.section>
 
       {/* Progress Timeline */}
       {(demoStatus === 'running' || demoStatus === 'complete') && (
@@ -388,6 +439,7 @@ export default function DemoMode() {
               <TicketReceipt
                 ticketId="CT-TKT-2026-0001"
                 complaintId={`CT-2026-${String(demoData?.demoCitizenComplaint?.trackingId || 'DEMO').slice(-4).padStart(4, '0')}`}
+                source="Voice"
                 category={demoAIAnalysis.classification.category}
                 department={demoAIAnalysis.routing.department}
                 priority={demoAIAnalysis.urgency.priority}

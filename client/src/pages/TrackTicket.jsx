@@ -10,6 +10,7 @@ const DEMO_TICKETS = {
   'CT-TKT-2026-0001': {
     ticketId: 'CT-TKT-2026-0001',
     complaintId: 'CT-2026-0001',
+    source: 'Web',
     category: 'Electricity',
     department: 'Electricity Department',
     priority: 'Critical',
@@ -33,6 +34,7 @@ const DEMO_TICKETS = {
   'CT-TKT-2026-0002': {
     ticketId: 'CT-TKT-2026-0002',
     complaintId: 'CT-2026-0002',
+    source: 'Web',
     category: 'Water Supply',
     department: 'Water Authority',
     priority: 'High',
@@ -56,6 +58,7 @@ const DEMO_TICKETS = {
   'CT-TKT-2026-0003': {
     ticketId: 'CT-TKT-2026-0003',
     complaintId: 'CT-2026-0003',
+    source: 'Web',
     category: 'Sanitation & Waste',
     department: 'Sanitation',
     priority: 'Medium',
@@ -74,6 +77,53 @@ const DEMO_TICKETS = {
       { label: 'Officer Assigned',            done: false, time: '--' },
       { label: 'Field Team Dispatch Pending', done: false, time: '--' },
       { label: 'Resolution Awaited',          done: false, time: '--' },
+    ],
+  },
+  'CT-TKT-2026-WA001': {
+    ticketId: 'CT-TKT-2026-WA001',
+    complaintId: 'CT-2026-WA001',
+    source: 'WhatsApp',
+    category: 'Electricity',
+    department: 'Electricity Department',
+    priority: 'Critical',
+    status: 'Field Team Dispatch Pending',
+    sla: '4 hours',
+    assignedOfficer: 'Rahul Verma',
+    officerRole: 'Ward Electricity Officer',
+    ward: 'Ward 1',
+    zone: 'North',
+    submittedAt: new Date(Date.now() - 1000 * 60 * 6).toISOString(),
+    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/track-ticket?ticket=CT-TKT-2026-WA001`,
+    timeline: [
+      { label: 'Ticket Created',              done: true,  time: '6 mins ago' },
+      { label: 'AI Classified',               done: true,  time: '5 mins ago' },
+      { label: 'SLA Assigned',                done: true,  time: '5 mins ago' },
+      { label: 'Officer Assigned',            done: true,  time: '4 mins ago' },
+      { label: 'Field Team Dispatch Pending', done: false, time: 'In progress' },
+      { label: 'Resolution Awaited',          done: false, time: '--' },
+    ],
+  },
+  'CT-TKT-2026-IVR001': {
+    ticketId: 'CT-TKT-2026-IVR001',
+    complaintId: 'CT-2026-IVR001',
+    source: 'Phone IVR',
+    category: 'Public Safety',
+    department: 'Public Safety Department',
+    priority: 'Critical',
+    status: 'Registered',
+    sla: '4 hours',
+    assignedOfficer: 'Priority Control Desk',
+    officerRole: 'Critical Triage Officer',
+    ward: 'Ward Pending',
+    zone: 'Phone Intake',
+    submittedAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
+    trackingUrl: `${typeof window !== 'undefined' ? window.location.origin : ''}/track-ticket?ticket=CT-TKT-2026-IVR001`,
+    timeline: [
+      { label: 'Ticket Created',     done: true,  time: '3 mins ago' },
+      { label: 'AI Classified',      done: true,  time: '2 mins ago' },
+      { label: 'SLA Assigned',       done: true,  time: '2 mins ago' },
+      { label: 'Officer Assigned',   done: false, time: 'In progress' },
+      { label: 'Resolution Awaited', done: false, time: '--' },
     ],
   },
 };
@@ -107,7 +157,7 @@ export default function TrackTicket() {
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center', marginTop: '1.5rem' }}>
             <span style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center' }}>Demo IDs:</span>
-            {['CT-TKT-2026-0001', 'CT-TKT-2026-0002', 'CT-TKT-2026-0003'].map(id => (
+            {DEMO_IDS.map(id => (
               <button
                 key={id}
                 onClick={() => { setQuery(id); setResult(DEMO_TICKETS[id]); setSearched(true); }}
