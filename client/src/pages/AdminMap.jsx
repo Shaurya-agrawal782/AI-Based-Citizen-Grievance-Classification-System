@@ -30,8 +30,8 @@ export default function AdminMap() {
       const data = res.data.grievances.map(g => ({
         ...g,
         // If no coordinates, generate some around a city center for demo purposes
-        lat: g.location?.coordinates?.lat || (28.6139 + (Math.random() - 0.5) * 0.1),
-        lng: g.location?.coordinates?.lng || (77.2090 + (Math.random() - 0.5) * 0.1)
+        lat: g.location?.coordinates?.lat || (23.2599 + (Math.random() - 0.5) * 0.1),
+        lng: g.location?.coordinates?.lng || (77.4126 + (Math.random() - 0.5) * 0.1)
       }));
       setGrievances(data);
       
@@ -98,7 +98,7 @@ export default function AdminMap() {
           </div>
         ) : (
           <>
-            <MapContainer center={[28.6139, 77.2090]} zoom={12} style={{ height: '100%', width: '100%' }}>
+            <MapContainer center={[23.2599, 77.4126]} zoom={12} style={{ height: '100%', width: '100%' }}>
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
