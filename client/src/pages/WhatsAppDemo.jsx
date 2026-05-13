@@ -7,29 +7,48 @@ import TicketReceipt from '../components/citizen/TicketReceipt';
 import { cardReveal, heroReveal, pageRevealProps } from '../utils/pageMotion';
 
 const WA_TICKET_ID = 'CT-TKT-2026-WA001';
+const PRIMARY_DEMO_TICKET_ID = 'CT-TKT-2026-0001';
+const FILE_GRIEVANCE_PATH = '/new-grievance';
+
+const SCOPED_FALLBACK =
+  "I'm CivicTrust WhatsApp Bot. I can only help with civic grievance filing, ticket tracking, emergency civic issues, QR zone reporting, SLA, and complaint guidance. Please send a civic complaint or choose an option.";
+
+const MENU_REPLY = 'Please choose an option:\n1. File Complaint\n2. Track Ticket\n3. Emergency Issue\n4. QR Zone Help\n5. SLA Help';
 
 const TRACK_STATUSES = {
-  'CT-TKT-2026-0001': {
+  [PRIMARY_DEMO_TICKET_ID]: {
     category: 'Electricity',
     priority: 'Critical',
     status: 'Field Team Dispatch Pending',
     sla: '4 hours',
+    assignedOfficer: 'Rahul Verma',
+    ward: 'Ward 1 North',
   },
   [WA_TICKET_ID]: {
     category: 'Electricity',
     priority: 'Critical',
     status: 'Field Team Dispatch Pending',
     sla: '4 hours',
+    assignedOfficer: 'Rahul Verma',
+    ward: 'Ward 1 North',
   },
 };
 
-const quickButtons = ['File Complaint', 'Track Ticket', 'Emergency Issue', 'QR Zone Help'];
+const quickButtons = ['File Complaint', 'Track Ticket', 'Emergency Issue', 'QR Zone Help', 'SLA Help'];
+
+const quickButtonMessages = {
+  'File Complaint': 'file complaint',
+  'Track Ticket': `track ${PRIMARY_DEMO_TICKET_ID}`,
+  'Emergency Issue': 'emergency issue',
+  'QR Zone Help': 'qr zone help',
+  'SLA Help': 'what is critical SLA',
+};
 
 const initialMessages = [
   {
     id: 'welcome',
     from: 'bot',
-    text: 'Welcome to CivicTrust AI. Send your complaint or choose an option.',
+    text: 'Welcome to CivicTrust AI WhatsApp Demo. Send your civic complaint or choose an option.',
   },
 ];
 
@@ -54,46 +73,189 @@ function makeTicket({ category = 'Electricity', priority = 'Critical', sla = '4 
   };
 }
 
-function detectComplaint(text) {
-  const lower = text.toLowerCase();
-  let category = 'General Civic Issue';
-  let priority = 'Medium';
-  let sla = '24 hours';
+const complaintCategories = [
+  {
+    category: 'Electricity',
+    keywords: ['bijli', 'electricity', 'power', 'wire', 'pole', 'spark', 'current', 'transformer', 'light'],
+  },
+  {
+    category: 'Water',
+    keywords: ['pani', 'paani', 'water', 'pipeline', 'tap', 'leakage', 'dirty water', 'contaminated', 'supply'],
+  },
+  {
+    category: 'Sanitation',
+    keywords: ['kachra', 'garbage', 'waste', 'gandagi', 'drain', 'nala', 'sewage', 'cleaning'],
+  },
+  {
+    category: 'Roads',
+    keywords: ['road', 'sadak', 'pothole', 'gaddha', 'gadda', 'bridge', 'footpath', 'traffic', 'waterlogging'],
+  },
+  {
+    category: 'Public Safety',
+    keywords: ['fire', 'accident', 'danger', 'injury', 'collapse', 'open manhole', 'school', 'hospital', 'emergency'],
+  },
+];
 
-  if (/(bijli|electric|pole|spark|wire|transformer|power|light)/i.test(lower)) {
-    category = 'Electricity';
-  } else if (/(water|paani|pipe|leak|supply)/i.test(lower)) {
-    category = 'Water Supply';
-  } else if (/(garbage|kachra|drain|sewer|sanitation)/i.test(lower)) {
-    category = 'Sanitation';
-  } else if (/(road|pothole|street|gadda)/i.test(lower)) {
-    category = 'Roads';
-  }
+const emergencyKeywords = ['fire', 'shock', 'current', 'spark', 'accident', 'injury', 'collapse', 'open manhole', 'danger', 'school', 'hospital'];
+const highPriorityKeywords = ['leakage', 'dirty water', 'contaminated', 'sewage', 'waterlogging', 'blocked', 'overflow'];
 
-  if (/(spark|fire|danger|urgent|emergency|unsafe|exposed|accident)/i.test(lower)) {
-    priority = 'Critical';
-    sla = '4 hours';
-  } else if (/(leak|blocked|broken|overflow)/i.test(lower)) {
-    priority = 'High';
-    sla = '8 hours';
-  }
+const outOfScopeRules = [
+  { reason: 'Java', test: (text) => /\bjava\b/.test(text) },
+  { reason: 'programming', test: (text) => /\b(python|javascript|coding|programming|algorithm|database|html|css|react|node)\b/.test(text) },
+  { reason: 'poem', test: (text) => /\b(poem|poetry|shayari)\b/.test(text) },
+  { reason: 'joke', test: (text) => /\b(joke|funny story)\b/.test(text) },
+  { reason: 'Virat Kohli', test: (text) => /\b(virat|kohli)\b/.test(text) },
+  { reason: 'math', test: (text) => /\b2\s*\+\s*2\b/.test(text) || (/\bsolve\b/.test(text) && /\b(math|equation|sum|problem)\b|\d+\s*[+\-*\/]\s*\d+/.test(text)) },
+  { reason: 'general knowledge', test: (text) => /\b(who is|capital of|history of|weather|latest news|wikipedia)\b/.test(text) },
+];
 
-  return { category, priority, sla };
+function normalizeMessage(value) {
+  return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-function isComplaintLike(text) {
-  const lower = text.toLowerCase();
-  return (
-    text.trim().length > 14 &&
-    /(bijli|electric|pole|spark|water|paani|garbage|kachra|road|pothole|drain|sewer|light|wire|supply|safety|unsafe|near|paas)/i.test(lower)
-  );
+function includesAny(text, keywords) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function classifyWhatsAppComplaint(message) {
+  const text = normalizeMessage(message);
+  const wordCount = text.split(' ').filter(Boolean).length;
+  const matched = complaintCategories.find((group) => includesAny(text, group.keywords));
+
+  if (!matched || (text.length < 8 && wordCount < 2)) return null;
+
+  const isCritical = matched.category === 'Public Safety' || includesAny(text, emergencyKeywords);
+  const isHighPriority = includesAny(text, highPriorityKeywords);
+  const priority = isCritical ? 'Critical' : isHighPriority ? 'High' : 'Medium';
+  const sla = isCritical ? '4 hours' : isHighPriority ? '8 hours' : '24 hours';
+
+  let reason = `${matched.category} issue keywords were found in the citizen message.`;
+
+  if (matched.category === 'Electricity' && text.includes('spark') && text.includes('school')) {
+    reason = 'Sparking pole near school may be a safety risk.';
+  } else if (matched.category === 'Electricity' && includesAny(text, ['spark', 'current', 'wire', 'transformer'])) {
+    reason = 'Electrical infrastructure hazard may be a safety risk.';
+  } else if (matched.category === 'Water' && includesAny(text, ['dirty water', 'contaminated'])) {
+    reason = 'Dirty or contaminated water may affect public health.';
+  } else if (matched.category === 'Water') {
+    reason = 'Water supply or leakage issue needs utility department attention.';
+  } else if (matched.category === 'Sanitation') {
+    reason = 'Waste, drain, or sewage issue may affect local hygiene.';
+  } else if (matched.category === 'Roads') {
+    reason = 'Road or public works issue may affect citizen mobility and safety.';
+  } else if (matched.category === 'Public Safety') {
+    reason = 'The message includes safety-critical civic risk keywords.';
+  }
+
+  return {
+    text: message.trim(),
+    category: matched.category,
+    priority,
+    sla,
+    reason,
+  };
+}
+
+function detectOutOfScope(text) {
+  return outOfScopeRules.find((rule) => rule.test(text));
+}
+
+function extractTicketId(text) {
+  return text.match(/CT-TKT-2026-[A-Z0-9]+/i)?.[0]?.toUpperCase() || '';
+}
+
+export function detectWhatsAppIntent(message) {
+  const text = normalizeMessage(message);
+
+  if (!text) {
+    return { allowed: false, intent: 'out_of_scope', reason: 'empty message' };
+  }
+
+  if (/^(hi|hello|hey|start)$/.test(text)) {
+    return { allowed: true, intent: 'greeting' };
+  }
+
+  if (/^(menu|help)$/.test(text)) {
+    return { allowed: true, intent: 'menu' };
+  }
+
+  if (/^yes$/.test(text)) {
+    return { allowed: true, intent: 'confirm_ticket' };
+  }
+
+  if (includesAny(text, ['track', 'ticket', 'ct-tkt', 'complaint id', 'ct-2026'])) {
+    return { allowed: true, intent: 'track_ticket' };
+  }
+
+  if (includesAny(text, ['sla', 'priority', 'critical', 'response time', 'how long', 'timeline'])) {
+    return { allowed: true, intent: 'sla_help' };
+  }
+
+  if (includesAny(text, ['qr zone', 'qr', 'scan', 'zone help', 'ward poster'])) {
+    return { allowed: true, intent: 'qr_help' };
+  }
+
+  if (includesAny(text, ['civicdraft', 'draft', 'formal complaint', 'write application', 'complaint writing', 'improve complaint'])) {
+    return { allowed: true, intent: 'civicdraft_help' };
+  }
+
+  if (includesAny(text, ['department', 'officer', 'ward', 'municipal', 'authority', 'assigned officer', 'routing'])) {
+    return { allowed: true, intent: 'department_help' };
+  }
+
+  const blocked = detectOutOfScope(text);
+  if (blocked) {
+    return { allowed: false, intent: 'out_of_scope', reason: blocked.reason };
+  }
+
+  if (/^(emergency|emergency issue|emergency help)$/.test(text)) {
+    return { allowed: true, intent: 'emergency_help' };
+  }
+
+  const complaint = classifyWhatsAppComplaint(message);
+  if (complaint) {
+    return {
+      allowed: true,
+      intent: 'complaint_preview',
+      category: complaint.category,
+      priority: complaint.priority,
+      sla: complaint.sla,
+      reason: complaint.reason,
+    };
+  }
+
+  if (includesAny(text, ['file complaint', 'file a complaint', 'new complaint', 'submit complaint', 'lodge complaint', 'report issue', 'report a problem', 'grievance'])) {
+    return { allowed: true, intent: 'file_complaint' };
+  }
+
+  if (includesAny(text, ['emergency issue', 'emergency help', ...emergencyKeywords])) {
+    return { allowed: true, intent: 'emergency_help' };
+  }
+
+  return {
+    allowed: false,
+    intent: 'out_of_scope',
+    reason: 'unsupported topic',
+  };
+}
+
+function buildOutOfScopeReply(intent) {
+  if (intent.reason === 'Java') {
+    return "I'm CivicTrust WhatsApp Bot. I can't help with Java questions. Please send a civic complaint or choose File Complaint / Track Ticket.";
+  }
+
+  if (['poem', 'joke', 'Virat Kohli', 'math', 'programming', 'general knowledge'].includes(intent.reason)) {
+    return "I'm CivicTrust WhatsApp Bot. I can only help with civic grievance filing, ticket tracking, QR reporting, SLA, and complaint guidance.";
+  }
+
+  return SCOPED_FALLBACK;
 }
 
 export default function WhatsAppDemo() {
   const shouldReduceMotion = useReducedMotion();
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState('');
-  const [pendingTicket, setPendingTicket] = useState(null);
+  const [pendingComplaint, setPendingComplaint] = useState(null);
   const [createdTicket, setCreatedTicket] = useState(null);
 
   const messageCount = useMemo(() => messages.length, [messages]);
@@ -109,22 +271,13 @@ export default function WhatsAppDemo() {
   };
 
   const handleTrackStatus = (rawText) => {
-    const match = rawText.toUpperCase().match(/CT-TKT-2026-[A-Z0-9]+/);
-    const ticketId = match?.[0];
+    const ticketId = extractTicketId(rawText);
     const status = ticketId ? TRACK_STATUSES[ticketId] : null;
-
-    if (!ticketId) {
-      appendMessages({
-        from: 'bot',
-        text: 'Send a demo tracking message like: track CT-TKT-2026-0001',
-      });
-      return;
-    }
 
     if (!status) {
       appendMessages({
         from: 'bot',
-        text: `No demo status found for ${ticketId}. Try CT-TKT-2026-0001 or ${WA_TICKET_ID}.`,
+        text: 'Please enter a valid CivicTrust ticket ID like CT-TKT-2026-0001.',
       });
       return;
     }
@@ -134,7 +287,103 @@ export default function WhatsAppDemo() {
       type: 'status',
       ticketId,
       ...status,
+      action: { label: 'Open Tracking Page', to: `/track-ticket?ticket=${ticketId}` },
     });
+  };
+
+  const handleComplaintPreview = (text) => {
+    const complaint = classifyWhatsAppComplaint(text);
+    setPendingComplaint(complaint);
+    appendMessages({
+      from: 'bot',
+      type: 'analysis',
+      ...complaint,
+    });
+  };
+
+  const handleConfirmTicket = () => {
+    if (!pendingComplaint) {
+      appendMessages({
+        from: 'bot',
+        text: 'Please send your civic complaint first, then reply YES to create a ticket.',
+      });
+      return;
+    }
+
+    const ticket = makeTicket(pendingComplaint);
+    setCreatedTicket(ticket);
+    setPendingComplaint(null);
+    appendMessages({
+      from: 'bot',
+      type: 'created',
+      ticketId: ticket.ticketId,
+      source: ticket.source,
+      status: ticket.status,
+      category: ticket.category,
+      priority: ticket.priority,
+    });
+  };
+
+  const handleAllowedIntent = (text, intent) => {
+    switch (intent.intent) {
+      case 'greeting':
+      case 'menu':
+        appendMessages({ from: 'bot', text: MENU_REPLY });
+        return;
+      case 'file_complaint':
+        appendMessages({
+          from: 'bot',
+          text: 'Please send your civic complaint in one message. Example: School ke paas bijli ka pole spark kar raha hai',
+        });
+        return;
+      case 'complaint_preview':
+        handleComplaintPreview(text);
+        return;
+      case 'confirm_ticket':
+        handleConfirmTicket();
+        return;
+      case 'track_ticket':
+        handleTrackStatus(text);
+        return;
+      case 'emergency_help':
+        appendMessages({
+          from: 'bot',
+          text: 'This may be a safety-critical civic issue. Please file it immediately. If there is immediate danger to life, contact local emergency services as well.\n\nReply YES to create an emergency grievance ticket if you already described the issue.',
+          actions: [
+            { label: 'File Complaint', to: FILE_GRIEVANCE_PATH },
+            { label: 'QR Zone Help', to: '/qr-zones' },
+          ],
+        });
+        return;
+      case 'sla_help':
+        appendMessages({
+          from: 'bot',
+          text: 'Critical SLA in the CivicTrust demo is 4 hours for safety risks such as sparking wires, fire, open manholes, accidents, collapse risk, or danger near a school or hospital. High priority issues use 8 hours, and routine civic issues use 24 hours.',
+        });
+        return;
+      case 'qr_help':
+        appendMessages({
+          from: 'bot',
+          text: 'QR Zone Help: scan a CivicTrust ward QR poster to attach zone, ward, and location context before filing a grievance.',
+          action: { label: 'Open QR Zones', to: '/qr-zones' },
+        });
+        return;
+      case 'civicdraft_help':
+        appendMessages({
+          from: 'bot',
+          text: 'CivicDraft helps convert rough civic issue text into a clearer grievance application. In this WhatsApp demo, send the complaint text first and reply YES after the preview.',
+          action: { label: 'Open CivicDraft AI', to: '/copilot' },
+        });
+        return;
+      case 'department_help':
+        appendMessages({
+          from: 'bot',
+          text: 'CivicTrust routes civic grievances to the relevant ward department based on category, priority, location, and SLA. Send the complaint text and I will preview the category locally.',
+        });
+        return;
+      default:
+        appendMessages({ from: 'bot', text: SCOPED_FALLBACK });
+    }
   };
 
   const handleUserText = (rawText) => {
@@ -142,42 +391,14 @@ export default function WhatsAppDemo() {
     if (!text) return;
 
     appendMessages({ from: 'user', text });
+    const intent = detectWhatsAppIntent(text);
 
-    if (/^yes$/i.test(text) && pendingTicket) {
-      const ticket = pendingTicket;
-      setCreatedTicket(ticket);
-      setPendingTicket(null);
-      appendMessages({
-        from: 'bot',
-        type: 'created',
-        ticketId: ticket.ticketId,
-        status: ticket.status,
-      });
+    if (!intent.allowed) {
+      appendMessages({ from: 'bot', text: buildOutOfScopeReply(intent) });
       return;
     }
 
-    if (/^track\s+/i.test(text)) {
-      handleTrackStatus(text);
-      return;
-    }
-
-    if (isComplaintLike(text)) {
-      const detected = detectComplaint(text);
-      const ticket = makeTicket(detected);
-      setPendingTicket(ticket);
-      appendMessages({
-        from: 'bot',
-        type: 'analysis',
-        ticketId: ticket.ticketId,
-        ...detected,
-      });
-      return;
-    }
-
-    appendMessages({
-      from: 'bot',
-      text: 'Type a short civic issue, or send: track CT-TKT-2026-0001',
-    });
+    handleAllowedIntent(text, intent);
   };
 
   const handleSubmit = (event) => {
@@ -187,37 +408,7 @@ export default function WhatsAppDemo() {
   };
 
   const handleQuickButton = (label) => {
-    appendMessages({ from: 'user', text: label });
-
-    if (label === 'File Complaint') {
-      appendMessages({
-        from: 'bot',
-        text: 'Type your complaint in one message. Example: School ke paas bijli ka pole spark kar raha hai',
-      });
-      return;
-    }
-
-    if (label === 'Track Ticket') {
-      appendMessages({
-        from: 'bot',
-        text: 'Send a demo tracking message like: track CT-TKT-2026-0001',
-      });
-      return;
-    }
-
-    if (label === 'Emergency Issue') {
-      appendMessages({
-        from: 'bot',
-        text: 'Demo only: describe the civic safety issue and CivicTrust will mark it Critical. This is not connected to any emergency service.',
-      });
-      return;
-    }
-
-    appendMessages({
-      from: 'bot',
-      text: 'QR Zone reporting adds location context from a ward poster.',
-      action: { label: 'Open QR Zones', to: '/qr-zones' },
-    });
+    handleUserText(quickButtonMessages[label]);
   };
 
   return (
@@ -237,7 +428,7 @@ export default function WhatsAppDemo() {
             CivicTrust WhatsApp Complaint Demo
           </h1>
           <p style={{ color: 'var(--on-surface-variant)', fontSize: '1.05rem' }}>
-            Demo simulation only — real WhatsApp API can be integrated later.
+            Demo simulation only - real WhatsApp API can be integrated later.
           </p>
         </motion.section>
 
@@ -278,14 +469,14 @@ export default function WhatsAppDemo() {
                       >
                         {message.type === 'analysis' ? (
                           <div>
-                            <p style={{ fontWeight: 800, marginBottom: '0.65rem' }}>Complaint understood.</p>
+                            <p style={{ fontWeight: 800, marginBottom: '0.65rem' }}>Complaint detected:</p>
                             <div style={{ display: 'grid', gap: '0.35rem', fontSize: '0.9rem' }}>
                               <span>Category: <strong>{message.category}</strong></span>
                               <span>Priority: <strong style={{ color: '#dc2626' }}>{message.priority}</strong></span>
                               <span>SLA: <strong>{message.sla}</strong></span>
-                              <span>Suggested ticket: <strong>{message.ticketId}</strong></span>
+                              <span>Reason: <strong>{message.reason}</strong></span>
                             </div>
-                            <p style={{ marginTop: '0.75rem', fontWeight: 700 }}>Reply YES to create this ticket.</p>
+                            <p style={{ marginTop: '0.75rem', fontWeight: 700 }}>Reply YES to create a demo ticket.</p>
                           </div>
                         ) : message.type === 'created' ? (
                           <div>
@@ -293,6 +484,7 @@ export default function WhatsAppDemo() {
                               <CheckCircle2 size={18} /> Ticket created successfully.
                             </p>
                             <p>Ticket ID: <strong>{message.ticketId}</strong></p>
+                            <p>Source: <strong>{message.source}</strong></p>
                             <p>Status: <strong>{message.status}</strong></p>
                             <Link
                               to={`/track-ticket?ticket=${message.ticketId}`}
@@ -305,21 +497,39 @@ export default function WhatsAppDemo() {
                         ) : message.type === 'status' ? (
                           <div>
                             <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-                              <Ticket size={17} /> Demo ticket status
+                              <Ticket size={17} /> Ticket found:
                             </p>
-                            <p>Ticket ID: <strong>{message.ticketId}</strong></p>
-                            <p>Category: <strong>{message.category}</strong></p>
-                            <p>Priority: <strong>{message.priority}</strong></p>
                             <p>Status: <strong>{message.status}</strong></p>
+                            <p>Priority: <strong>{message.priority}</strong></p>
                             <p>SLA: <strong>{message.sla}</strong></p>
+                            <p>Assigned Officer: <strong>{message.assignedOfficer}</strong></p>
+                            <p>Ward: <strong>{message.ward}</strong></p>
+                            {message.action && (
+                              <Link
+                                to={message.action.to}
+                                className="btn btn-primary btn-sm premium-button-hover"
+                                style={{ marginTop: '0.75rem', borderRadius: 'var(--radius-full)' }}
+                              >
+                                {message.action.label} <ArrowRight size={14} />
+                              </Link>
+                            )}
                           </div>
                         ) : (
                           <div>
-                            <p>{message.text}</p>
+                            <p style={{ whiteSpace: 'pre-line' }}>{message.text}</p>
                             {message.action && (
                               <Link to={message.action.to} className="btn btn-outline btn-sm premium-button-hover" style={{ marginTop: '0.7rem', borderRadius: 'var(--radius-full)' }}>
                                 {message.action.label}
                               </Link>
+                            )}
+                            {message.actions && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', marginTop: '0.75rem' }}>
+                                {message.actions.map((action) => (
+                                  <Link key={action.label} to={action.to} className="btn btn-outline btn-sm premium-button-hover" style={{ borderRadius: 'var(--radius-full)' }}>
+                                    {action.label}
+                                  </Link>
+                                ))}
+                              </div>
                             )}
                           </div>
                         )}
@@ -330,6 +540,9 @@ export default function WhatsAppDemo() {
               </div>
 
               <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.84)', borderTop: '1px solid rgba(226,232,240,0.76)' }}>
+                <p style={{ fontSize: '0.76rem', color: 'var(--on-surface-variant)', margin: '0 0 0.75rem', lineHeight: 1.45 }}>
+                  Demo bot only handles civic grievance filing, tracking, SLA, QR and emergency guidance.
+                </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.85rem' }}>
                   {quickButtons.map((label) => (
                     <button
