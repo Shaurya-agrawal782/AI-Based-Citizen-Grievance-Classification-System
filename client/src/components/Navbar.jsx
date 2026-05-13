@@ -199,7 +199,7 @@ export default function Navbar() {
                     className="nav-dropdown-item"
                     style={{ width: '100%', gap: '0.75rem', color: 'var(--error)' }}
                   >
-                    <span className="material-symbols-outlined">{t('common.logout')}</span>
+                    <span className="material-symbols-outlined">logout</span>
                     <span>{t('common.logout')}</span>
                   </button>
                 </div>

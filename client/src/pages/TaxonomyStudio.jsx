@@ -25,6 +25,7 @@ const emptyForm = {
 
 /* ── Category Card ── */
 function TaxonomyCategoryCard({ cat, onEdit, onToggle, onDelete }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const pri = PRIORITY_COLORS[cat.priorityRules?.defaultPriority] || PRIORITY_COLORS.Normal;
 
@@ -123,6 +124,7 @@ function TaxonomyCategoryCard({ cat, onEdit, onToggle, onDelete }) {
 
 /* ── Form Modal ── */
 function TaxonomyCategoryForm({ initial, onSave, onClose }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState(() => {
     if (!initial) return emptyForm;
     return {

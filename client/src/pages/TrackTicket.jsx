@@ -234,8 +234,8 @@ export default function TrackTicket() {
               <div style={{ width: '5rem', height: '5rem', borderRadius: '50%', background: 'var(--surface-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
                 <Search size={32} color="var(--outline)" />
               </div>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>{t('ticket.notFound').split('.')[0]}</h3>
-              <p style={{ color: 'var(--on-surface-variant)' }}>{t('ticket.notFound')} Demo IDs: {DEMO_IDS.join(', ')}</p>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>{t('ticket.notFoundTitle')}</h3>
+              <p style={{ color: 'var(--on-surface-variant)' }}>{t('ticket.notFoundDesc')} {t('ticket.demoIds')} {DEMO_IDS.join(', ')}</p>
             </motion.div>
           )}
         </AnimatePresence>

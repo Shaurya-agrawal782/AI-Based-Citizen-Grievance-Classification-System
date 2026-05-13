@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react';
 import { translations } from '../i18n/translations';
+import { extraTranslations, translateUiText } from '../i18n/runtimeTranslations';
+import DocumentTranslator from '../components/common/DocumentTranslator';
 
 const STORAGE_KEY = 'civictrust_lang';
 
@@ -19,14 +21,22 @@ function resolve(obj, path) {
   return current ?? path;
 }
 
+function resolveFirst(sources, key) {
+  for (const source of sources) {
+    const value = resolve(source, key);
+    if (value !== key) return value;
+  }
+  return key;
+}
+
 export function LanguageProvider({ children }) {
   const [lang, setLangState] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored && translations[stored] ? stored : 'en';
+    return stored && (translations[stored] || extraTranslations[stored]) ? stored : 'en';
   });
 
   const setLang = useCallback((code) => {
-    if (!translations[code]) return;
+    if (!translations[code] && !extraTranslations[code]) return;
     localStorage.setItem(STORAGE_KEY, code);
     setLangState(code);
   }, []);
@@ -37,17 +47,20 @@ export function LanguageProvider({ children }) {
    */
   const t = useCallback(
     (key) => {
-      const inLang = resolve(translations[lang], key);
+      const inLang = resolveFirst([translations[lang], extraTranslations[lang]], key);
       if (inLang !== key) return inLang;
       // Fallback to English
-      return resolve(translations.en, key);
+      return resolveFirst([translations.en, extraTranslations.en], key);
     },
     [lang]
   );
 
+  const tr = useCallback((value) => translateUiText(value, lang), [lang]);
+
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={{ lang, setLang, t, tr }}>
       {children}
+      <DocumentTranslator lang={lang} />
     </LanguageContext.Provider>
   );
 }
