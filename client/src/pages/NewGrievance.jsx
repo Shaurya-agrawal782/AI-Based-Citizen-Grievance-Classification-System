@@ -11,6 +11,7 @@ import LiveGeoTaggedCapture from '../components/citizen/LiveGeoTaggedCapture';
 import { qrZones } from '../data/qrZones';
 import { detectGPSLocation, reverseGeocode, formatAccuracy, getQRContext, setQRContext, clearQRContext } from '../utils/locationHelper';
 import { watermarkImage } from '../utils/watermarkEvidenceImage';
+import { cleanDisplayAddress } from '../utils/cleanAddress';
 import {
   buildNeedsReviewClassification,
   categoryFromDepartment,
@@ -35,14 +36,24 @@ const getAccuracyStatus = (accuracy) => {
   return { label: 'Low', tone: 'var(--error)' };
 };
 
+const TRUSTED_LOCALITY_ACCURACY_METERS = 100;
+
 const formatCoordinate = (value) => {
   const coordinate = Number(value);
   return Number.isFinite(coordinate) ? coordinate.toFixed(6) : 'Not available';
 };
 
+const buildConfirmedDisplayAddress = (fields, fallbackAddress = '') => {
+  const manualArea = fields.area?.trim();
+  const manualAddress = manualArea
+    ? [manualArea, fields.city?.trim(), fields.state?.trim()].filter(Boolean).join(', ')
+    : '';
+  return cleanDisplayAddress(manualAddress || fields.address || fields.displayAddress || fallbackAddress);
+};
+
 const buildLocationPreview = (fields) => {
   const landmark = fields.landmark?.trim();
-  const address = fields.address?.trim();
+  const address = buildConfirmedDisplayAddress(fields);
   const pincode = fields.pincode?.trim();
 
   const base = (landmark && address) ? `${landmark}, ${address}` : (landmark || address || '');
@@ -52,36 +63,38 @@ const buildLocationPreview = (fields) => {
   return base;
 };
 
+const buildCoarseDisplayAddress = (geocoded, fallbackAddress) => {
+  const city = geocoded?.city || geocoded?.fullData?.city || geocoded?.fullData?.town || geocoded?.fullData?.village || geocoded?.fullData?.state_district || '';
+  const state = geocoded?.state || geocoded?.fullData?.state || '';
+  const country = geocoded?.fullData?.country || '';
+  return cleanDisplayAddress([city, state, country].filter(Boolean).join(', ')) || cleanDisplayAddress(fallbackAddress);
+};
+
 const buildLocationPayload = (fields, detected, sourceOverride) => {
   const lat = detected?.lat ?? detected?.coordinates?.lat ?? null;
   const lng = detected?.lng ?? detected?.coordinates?.lng ?? null;
 
-  // suggestedAddress = raw geocoder output; user should not blindly trust it
-  const suggestedAddress = detected?.address || fields.address?.trim() || '';
-
-  // finalAddress = constructed from user-confirmed fields
-  const finalParts = [
-    fields.landmark?.trim(),
-    fields.area?.trim(),
-    fields.city?.trim(),
-    fields.state?.trim(),
-  ].filter(Boolean);
-  const manualPincode = fields.pincode?.trim() || detected?.pincode || '';
-  let finalAddress = finalParts.join(', ');
-  if (manualPincode) finalAddress = finalAddress ? `${finalAddress} - ${manualPincode}` : manualPincode;
-  if (!finalAddress) finalAddress = suggestedAddress;
+  const suggestedAddress = detected?.suggestedAddress || detected?.rawAddress || '';
+  const displayAddress = buildConfirmedDisplayAddress(fields, detected?.displayAddress || detected?.address || suggestedAddress);
+  const manualPincode = fields.pincode?.trim() || '';
+  const finalAddress = buildLocationPreview({
+    ...fields,
+    address: displayAddress,
+    pincode: manualPincode,
+  }) || displayAddress || suggestedAddress;
 
   const payload = {
     lat,
     lng,
     accuracy: detected?.accuracy ?? null,
-    address: fields.address?.trim() || detected?.address || '',
+    address: finalAddress || displayAddress || fields.address?.trim() || detected?.address || '',
     landmark: fields.landmark?.trim() || '',
     city: fields.city?.trim() || detected?.city || '',
     state: fields.state?.trim() || detected?.state || '',
     pincode: manualPincode,
     source: sourceOverride || detected?.source || 'Manual',
     suggestedAddress,
+    displayAddress,
     finalAddress,
     confirmedByUser: true,
     detectedAt: detected?.timestamp ? new Date(detected.timestamp).toISOString() : new Date().toISOString(),
@@ -194,12 +207,17 @@ export default function NewGrievance() {
         
         // Prefill location from QR zone
         if (qrCtx) {
+          const rawQrAddress = qrCtx.address || '';
+          const displayQrAddress = cleanDisplayAddress(rawQrAddress) || rawQrAddress;
           setLocationDetected({
             lat: qrCtx.lat,
             lng: qrCtx.lng,
-            address: qrCtx.address,
+            address: displayQrAddress,
+            suggestedAddress: rawQrAddress,
+            displayAddress: displayQrAddress,
+            mapDisplayAddress: displayQrAddress,
             source: 'QR',
-            city: qrCtx.address?.split(',')[0] || '',
+            city: displayQrAddress?.split(',')[0] || '',
             ward: qrCtx.ward || '',
             zone: qrCtx.zone || '',
             timestamp: Date.now(),
@@ -207,11 +225,11 @@ export default function NewGrievance() {
           
           const nextFields = {
             ...locationFieldsRef.current,
-            city: qrCtx.address?.split(',')[0] || '',
+            city: displayQrAddress?.split(',')[0] || '',
             area: '',
             ward: qrCtx.ward || '',
             zone: qrCtx.zone || '',
-            address: qrCtx.address || '',
+            address: displayQrAddress,
             state: '',
             pincode: '',
           };
@@ -221,7 +239,7 @@ export default function NewGrievance() {
           
           setForm(prev => ({
             ...prev,
-            location: buildLocationPreview(nextFields) || qrCtx.address,
+            location: buildLocationPreview(nextFields) || displayQrAddress,
             locationSource: 'QR',
           }));
           setLocationConfirmed(false);
@@ -248,6 +266,13 @@ export default function NewGrievance() {
       // Try reverse geocoding
       const geocoded = await reverseGeocode(gpsLocation.lat, gpsLocation.lng);
       const detectedAddress = geocoded?.address || `${gpsLocation.lat}, ${gpsLocation.lng}`;
+      const isApproximateGps = Number(gpsLocation.accuracy) > TRUSTED_LOCALITY_ACCURACY_METERS;
+      const cleanedDetectedAddress = cleanDisplayAddress(detectedAddress) || detectedAddress;
+      const displayAddress = isApproximateGps
+        ? buildCoarseDisplayAddress(geocoded, cleanedDetectedAddress)
+        : cleanedDetectedAddress;
+      const detectedCity = cleanDisplayAddress(geocoded?.city || '');
+      const detectedState = cleanDisplayAddress(geocoded?.state || '');
       
       const locationData = {
         lat: gpsLocation.lat,
@@ -255,23 +280,27 @@ export default function NewGrievance() {
         accuracy: gpsLocation.accuracy,
         source: 'GPS',
         timestamp: Date.now(),
-        address: detectedAddress,
-        city: geocoded?.city || '',
-        area: geocoded?.area || '',
-        state: geocoded?.state || '',
-        pincode: geocoded?.pincode || '',
+        address: displayAddress,
+        suggestedAddress: detectedAddress,
+        displayAddress,
+        mapDisplayAddress: displayAddress,
+        city: detectedCity,
+        area: isApproximateGps ? '' : (geocoded?.area || ''),
+        state: detectedState,
+        pincode: '',
+        isApproximateGps,
       };
       
       setLocationDetected(locationData);
       const nextFields = {
         ...locationFieldsRef.current,
-        city: geocoded?.city || '',
-        area: geocoded?.area || '',
+        city: detectedCity,
+        area: isApproximateGps ? '' : (geocoded?.area || ''),
         ward: '',
         zone: '',
-        address: detectedAddress,
-        state: geocoded?.state || '',
-        pincode: geocoded?.pincode || '',
+        address: displayAddress,
+        state: detectedState,
+        pincode: '',
       };
 
       locationFieldsRef.current = nextFields;
@@ -279,10 +308,13 @@ export default function NewGrievance() {
       
       setForm(prev => ({
         ...prev,
-        location: buildLocationPreview(nextFields) || detectedAddress,
+        location: buildLocationPreview(nextFields) || displayAddress,
         locationSource: 'GPS',
       }));
       setLocationConfirmed(false);
+      if (isApproximateGps) {
+        setLocationWarning('GPS accuracy is approximate. Please enter your actual area/locality and exact landmark.');
+      }
       
     } catch (error) {
       console.error('Location detection error:', error);
@@ -303,15 +335,18 @@ export default function NewGrievance() {
     if (locationDetected) {
       const fields = locationFieldsRef.current;
       const hasLandmark = Boolean(fields.landmark?.trim());
+      const hasArea = Boolean(fields.area?.trim());
       const hasPincode = Boolean(fields.pincode?.trim());
+      const needsAreaConfirmation = locationDetected.isApproximateGps || Number(locationDetected.accuracy) > TRUSTED_LOCALITY_ACCURACY_METERS;
 
       const warnings = [];
+      if (needsAreaConfirmation && !hasArea) warnings.push('Please enter your actual area/locality.');
       if (!hasLandmark) warnings.push('Please add an exact landmark for faster routing.');
       if (!hasPincode) warnings.push('Please confirm pincode if available.');
 
       if (warnings.length > 0) {
         setLocationWarning(warnings.join(' '));
-        if (!hasLandmark) setShowLocationEdit(true);
+        if ((needsAreaConfirmation && !hasArea) || !hasLandmark) setShowLocationEdit(true);
       } else {
         setLocationWarning(null);
         setShowLocationEdit(false);
@@ -342,9 +377,10 @@ export default function NewGrievance() {
     ]
       .filter(Boolean)
       .join(', ') || fields.address;
+    const displayAddress = cleanDisplayAddress(fields.address?.trim() || manualAddress) || fields.address?.trim() || manualAddress;
     const nextFields = {
       ...fields,
-      address: fields.address?.trim() || manualAddress,
+      address: displayAddress,
     };
 
     locationFieldsRef.current = nextFields;
@@ -359,7 +395,8 @@ export default function NewGrievance() {
     setLocationDetected(prev => ({
       ...prev,
       source: savedSource,
-      address: nextFields.address,
+      address: displayAddress,
+      displayAddress,
       landmark: nextFields.landmark,
       city: nextFields.city,
       area: nextFields.area,
@@ -541,8 +578,12 @@ export default function NewGrievance() {
   };
 
   const finalLocationPreview = buildLocationPreview(locationFields);
+  const suggestedMapAddress = cleanDisplayAddress(
+    locationDetected?.mapDisplayAddress || locationDetected?.suggestedAddress || locationDetected?.address || ''
+  );
   const accuracyStatus = getAccuracyStatus(locationDetected?.accuracy);
   const gpsAccuracy = Number(locationDetected?.accuracy);
+  const mapLocalityIsApproximate = Boolean(locationDetected?.isApproximateGps || (locationDetected?.source === 'GPS' && gpsAccuracy > TRUSTED_LOCALITY_ACCURACY_METERS));
   // Two-level accuracy warnings
   const showAccuracyWarning = locationDetected?.source === 'GPS' && gpsAccuracy > 50 && gpsAccuracy <= 100;
   const showStrongAccuracyWarning = locationDetected?.source === 'GPS' && gpsAccuracy > 100;
@@ -576,31 +617,29 @@ export default function NewGrievance() {
             <span className="material-symbols-outlined filled" style={{ fontSize: '2.5rem' }}>check_circle</span>
           </div>
         </motion.div>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Grievance Submitted!</h1>
-        <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '1.125rem' }}>
-          Your complaint has been filed and is being processed by our AI system.
-        </p>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>{t('deep.grievanceSubmit')}</h1>
+        <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '1.125rem' }}>{t('deep.yourComplaintHa')}</p>
         <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem', textAlign: 'left' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <span style={{ fontWeight: 600 }}>Tracking ID</span>
+            <span style={{ fontWeight: 600 }}>{t('deep.trackingID')}</span>
             <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.125rem' }}>{success.trackingId}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ color: 'var(--on-surface-variant)' }}>Category</span>
+            <span style={{ color: 'var(--on-surface-variant)' }}>{t('deep.category')}</span>
             <span style={{ fontWeight: 600 }}>{success.category}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ color: 'var(--on-surface-variant)' }}>Department</span>
+            <span style={{ color: 'var(--on-surface-variant)' }}>{t('deep.department')}</span>
             <span style={{ fontWeight: 600 }}>{success.department}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--on-surface-variant)' }}>Priority</span>
+            <span style={{ color: 'var(--on-surface-variant)' }}>{t('deep.priority')}</span>
             <span className={`badge badge-${success.priority}`}>{success.priority}</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button onClick={() => navigate('/dashboard')} className="btn btn-secondary civic-gradient-button">Go to Dashboard</button>
-          <button onClick={() => { setSuccess(null); setStep(1); setLiveEvidence(null); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">File Another</button>
+          <button onClick={() => navigate('/dashboard')} className="btn btn-secondary civic-gradient-button">{t('deep.goToDashboard')}</button>
+          <button onClick={() => { setSuccess(null); setStep(1); setLiveEvidence(null); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">{t('deep.fileAnother')}</button>
         </div>
       </div>
       </div>
@@ -613,10 +652,8 @@ export default function NewGrievance() {
       {/* Page Header */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="warm-accent-card" style={{ marginBottom: '2rem', padding: '2rem' }}>
         <div className="badge badge-ai" style={{ marginBottom: '0.85rem' }}>{t('grievance.guidedIntake')}</div>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>New Grievance</h1>
-        <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)' }}>
-          Please provide the details of your issue to help us route it to the appropriate department.
-        </p>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>{t('deep.newGrievance')}</h1>
+        <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)' }}>{t('deep.pleaseProvideTh')}</p>
       </motion.div>
 
       {/* Step Progress */}
@@ -646,18 +683,18 @@ export default function NewGrievance() {
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>Contact Information</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{t('deep.contactInformat')}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="citizenName">Full Name</label>
-                    <input id="citizenName" className="form-input" type="text" value={form.citizenName} onChange={e => setForm({ ...form, citizenName: e.target.value })} placeholder="Your full name" required />
+                    <label className="form-label" htmlFor="citizenName">{t('deep.fullName')}</label>
+                    <input id="citizenName" className="form-input" type="text" value={form.citizenName} onChange={e => setForm({ ...form, citizenName: e.target.value })} placeholder={t('deep.yourFullName')} required />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="citizenEmail">Email Address</label>
-                    <input id="citizenEmail" className="form-input" type="email" value={form.citizenEmail} onChange={e => setForm({ ...form, citizenEmail: e.target.value })} placeholder="you@example.com" required />
+                    <label className="form-label" htmlFor="citizenEmail">{t('deep.emailAddress')}</label>
+                    <input id="citizenEmail" className="form-input" type="email" value={form.citizenEmail} onChange={e => setForm({ ...form, citizenEmail: e.target.value })} placeholder={t('deep.youExampleCom')} required />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="citizenPhone">Phone Number</label>
+                    <label className="form-label" htmlFor="citizenPhone">{t('deep.phoneNumber')}</label>
                     <input id="citizenPhone" className="form-input" type="tel" value={form.citizenPhone} onChange={e => setForm({ ...form, citizenPhone: e.target.value })} placeholder="9876543210" />
                   </div>
                 </div>
@@ -666,20 +703,18 @@ export default function NewGrievance() {
 
             {step === 2 && (
               <motion.div key="step2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>Incident Details</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{t('deep.incidentDetails')}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   <div className="form-group">
                     <label className="form-label" htmlFor="title">Grievance Title</label>
-                    <input id="title" className="form-input" type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Briefly describe the issue" required />
+                    <input id="title" className="form-input" type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder={t('deep.brieflyDescribe')} required />
                   </div>
                   <div style={{ padding: '1rem', background: 'linear-gradient(135deg, rgba(30,58,138,0.05), rgba(14,165,164,0.05))', borderRadius: 'var(--radius-md)', border: '1px solid rgba(14,165,164,0.15)', marginBottom: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--primary)', fontWeight: 700 }}>
                       <Mic size={18} />
-                      <span style={{ fontSize: '0.875rem' }}>Voice-first grievance filing</span>
+                      <span style={{ fontSize: '0.875rem' }}>{t('deep.voiceFirstGriev')}</span>
                     </div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
-                      Citizens can speak complaints in Indian languages. CivicTrust converts speech into text for AI classification and routing.
-                    </p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{t('deep.citizensCanSpea')}</p>
                   </div>
 
                   <VoiceComplaintInput
@@ -739,11 +774,11 @@ export default function NewGrievance() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div className="form-group">
-                      <label className="form-label" htmlFor="dateOfIncident">Date of Incident</label>
+                      <label className="form-label" htmlFor="dateOfIncident">{t('deep.dateOfIncident')}</label>
                       <input id="dateOfIncident" className="form-input" type="date" value={form.dateOfIncident} onChange={e => setForm({ ...form, dateOfIncident: e.target.value })} />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Location</label>
+                      <label className="form-label">{t('deep.location')}</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           id="location"
@@ -760,7 +795,7 @@ export default function NewGrievance() {
                             });
                             setLocationConfirmed(false);
                           }}
-                          placeholder="Address or landmark"
+                          placeholder={t('deep.addressOrLandma')}
                         />
                         <button
                           onClick={handleDetectLocation}
@@ -813,21 +848,21 @@ export default function NewGrievance() {
                         </h4>
 
                         <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem' }}>GPS Coordinates</p>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem' }}>{t('deep.gPSCoordinates')}</p>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem' }}>
                             <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
-                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>Latitude</p>
+                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{t('deep.latitude')}</p>
                               <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(locationDetected.lat)}</p>
                             </div>
                             <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
-                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>Longitude</p>
+                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{t('deep.longitude')}</p>
                               <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(locationDetected.lng)}</p>
                             </div>
                           </div>
                         </div>
 
                         <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Accuracy</p>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{t('deep.accuracy')}</p>
                           <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>
                             {locationDetected.accuracy ? `${locationDetected.accuracy}m` : 'Not reported'}
                             <span style={{ color: accuracyStatus.tone, fontWeight: 700, marginLeft: '0.5rem' }}>{accuracyStatus.label}</span>
@@ -847,7 +882,7 @@ export default function NewGrievance() {
                             alignItems: 'flex-start',
                           }}>
                             <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>GPS is approximate. Please add exact landmark and pincode for better routing.</span>
+                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>{t('deep.gPSIsApproximat')}</span>
                           </div>
                         )}
                         {showStrongAccuracyWarning && (
@@ -862,18 +897,34 @@ export default function NewGrievance() {
                             alignItems: 'flex-start',
                           }}>
                             <AlertTriangle size={14} color="#e65100" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#b34000', fontWeight: 600 }}>Location accuracy is moderate/low. Manual confirmation is recommended.</span>
+                            <span style={{ fontSize: '0.75rem', color: '#b34000', fontWeight: 600 }}>{t('deep.locationAccurac')}</span>
                           </div>
                         )}
 
-                        {/* Part A: Suggested Address label + helper text */}
+                        {/* Suggested map address */}
                         <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Suggested Address</p>
-                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.25rem' }}>{locationFields.address || locationDetected.address || 'Address not available'}</p>
-                          <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic', lineHeight: 1.4 }}>Address and pincode are estimated from map data. Please confirm landmark and pincode before submitting.</p>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{t('deep.suggestedAddres')}</p>
+                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.25rem' }}>{suggestedMapAddress || 'Address not available'}</p>
+                          <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic', lineHeight: 1.4 }}>
+                            {mapLocalityIsApproximate
+                              ? 'GPS accuracy is approximate, so nearby locality names from the map may be wrong. Enter your actual area/locality and landmark below.'
+                              : t('deep.administrativeA')}
+                          </p>
                         </div>
 
                         {/* Part B: Landmark field in location card */}
+                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                          <label className="form-label" htmlFor="detectedArea">Area / Locality</label>
+                          <input
+                            id="detectedArea"
+                            className="form-input"
+                            type="text"
+                            value={locationFields.area}
+                            onChange={e => updateLocationFields({ area: e.target.value })}
+                            placeholder="Example: Anand Nagar"
+                          />
+                        </div>
+
                         <div className="form-group" style={{ marginBottom: '0.75rem' }}>
                           <label className="form-label" htmlFor="detectedLandmark">{t('grievance.exactLandmark')}</label>
                           <input
@@ -900,7 +951,7 @@ export default function NewGrievance() {
                             maxLength={6}
                           />
                           {locationFields.pincode && !/^\d{6}$/.test(locationFields.pincode) && (
-                            <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>⚠ Enter a valid 6-digit Indian pincode.</p>
+                            <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>{t('deep.EnterAValid6Dig')}</p>
                           )}
                         </div>
 
@@ -936,7 +987,7 @@ export default function NewGrievance() {
                               </div>
                             </>
                           ) : (
-                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic' }}>Add landmark and confirm pincode to preview final location.</p>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic' }}>{t('deep.addLandmarkAndC')}</p>
                           )}
                         </div>
 
@@ -959,24 +1010,24 @@ export default function NewGrievance() {
                             alignItems: 'flex-start',
                           }}>
                             <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#ef9900' }}>Location accuracy is low. Please confirm or edit before submitting.</span>
+                            <span style={{ fontSize: '0.75rem', color: '#ef9900' }}>{t('deep.locationAccuracx')}</span>
                           </div>
                         )}
                         
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.75rem' }}>
                           <div>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>Latitude</p>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{t('deep.latitude')}</p>
                             <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{locationDetected.lat}</p>
                           </div>
                           <div>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>Longitude</p>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{t('deep.longitude')}</p>
                             <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{locationDetected.lng}</p>
                           </div>
                         </div>
                         
                         {locationDetected.address && (
                           <div style={{ marginBottom: '0.75rem' }}>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Address</p>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{t('deep.address')}</p>
                             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>{locationDetected.address}</p>
                           </div>
                         )}
@@ -995,16 +1046,14 @@ export default function NewGrievance() {
                             className="btn btn-sm btn-outline"
                             style={{ flex: '1 1 auto', minWidth: '100px' }}
                           >
-                            <Edit2 size={14} style={{ marginRight: '0.25rem' }} /> Edit
-                          </button>
+                            <Edit2 size={14} style={{ marginRight: '0.25rem' }} />{t('deep.edit')}</button>
                           {locationDetected.source === 'GPS' && (
                             <button
                               onClick={handleRedetectLocation}
                               className="btn btn-sm btn-outline"
                               style={{ flex: '1 1 auto', minWidth: '100px' }}
                             >
-                              <Navigation size={14} style={{ marginRight: '0.25rem' }} /> Re-detect
-                            </button>
+                              <Navigation size={14} style={{ marginRight: '0.25rem' }} />{t('deep.reDetect')}</button>
                           )}
                         </div>
                       </motion.div>
@@ -1051,35 +1100,35 @@ export default function NewGrievance() {
                           marginBottom: '1rem',
                         }}
                       >
-                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--on-surface)' }}>Edit Location Details</h4>
+                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--on-surface)' }}>{t('deep.editLocationDet')}</h4>
                         <div className="form-group" style={{ marginBottom: '0.75rem' }}>
                           <label className="form-label" htmlFor="manualLandmark">{t('grievance.exactLandmark')}</label>
                           <input id="manualLandmark" className="form-input" type="text" value={locationFields.landmark} onChange={e => updateLocationFields({ landmark: e.target.value })} placeholder="Example: Bansal College, Main Gate, Near Canteen" />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="city">City / Town</label>
+                            <label className="form-label" htmlFor="city">{t('deep.cityTown')}</label>
                             <input id="city" className="form-input" type="text" value={locationFields.city} onChange={e => updateLocationFields({ city: e.target.value })} placeholder="e.g. Bhopal" />
                           </div>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="area">Area</label>
-                            <input id="area" className="form-input" type="text" value={locationFields.area} onChange={e => updateLocationFields({ area: e.target.value })} placeholder="e.g. Arera Hills" />
+                            <label className="form-label" htmlFor="area">{t('deep.area')}</label>
+                            <input id="area" className="form-input" type="text" value={locationFields.area} onChange={e => updateLocationFields({ area: e.target.value })} placeholder="e.g. Anand Nagar" />
                           </div>
                           {/* Part B: Ward, Zone, State, Pincode with correct placeholders */}
                           <div className="form-group">
-                            <label className="form-label" htmlFor="ward">Ward</label>
+                            <label className="form-label" htmlFor="ward">{t('deep.ward')}</label>
                             <input id="ward" className="form-input" type="text" value={locationFields.ward} onChange={e => updateLocationFields({ ward: e.target.value })} placeholder="Example: Ward 1" />
                           </div>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="zone">Zone</label>
+                            <label className="form-label" htmlFor="zone">{t('deep.zone')}</label>
                             <input id="zone" className="form-input" type="text" value={locationFields.zone} onChange={e => updateLocationFields({ zone: e.target.value })} placeholder="Example: North Zone" />
                           </div>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="state">State</label>
+                            <label className="form-label" htmlFor="state">{t('deep.state')}</label>
                             <input id="state" className="form-input" type="text" value={locationFields.state} onChange={e => updateLocationFields({ state: e.target.value })} placeholder="e.g. Madhya Pradesh" />
                           </div>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="pincode">Pincode</label>
+                            <label className="form-label" htmlFor="pincode">{t('deep.pincode')}</label>
                             <input
                               id="pincode"
                               className="form-input"
@@ -1091,13 +1140,13 @@ export default function NewGrievance() {
                               maxLength={6}
                             />
                             {locationFields.pincode && !/^\d{6}$/.test(locationFields.pincode) && (
-                              <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>⚠ Enter a valid 6-digit Indian pincode.</p>
+                              <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>{t('deep.EnterAValid6Dig')}</p>
                             )}
                           </div>
                         </div>
                         <div className="form-group">
-                          <label className="form-label" htmlFor="address">Full Address</label>
-                          <input id="address" className="form-input" type="text" value={locationFields.address} onChange={e => updateLocationFields({ address: e.target.value })} placeholder="Complete address" />
+                          <label className="form-label" htmlFor="address">{t('deep.fullAddress')}</label>
+                          <input id="address" className="form-input" type="text" value={locationFields.address} onChange={e => updateLocationFields({ address: e.target.value })} placeholder={t('deep.completeAddress')} />
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button
@@ -1105,15 +1154,12 @@ export default function NewGrievance() {
                             className="btn btn-sm btn-primary"
                             style={{ flex: 1 }}
                           >
-                            <Check size={14} style={{ marginRight: '0.25rem' }} /> Save Changes
-                          </button>
+                            <Check size={14} style={{ marginRight: '0.25rem' }} />{t('deep.saveChanges')}</button>
                           <button
                             onClick={() => setShowLocationEdit(false)}
                             className="btn btn-sm btn-outline"
                             style={{ flex: 1 }}
-                          >
-                            Cancel
-                          </button>
+                          >{t('deep.cancel')}</button>
                         </div>
                       </motion.div>
                     )}
@@ -1138,7 +1184,7 @@ export default function NewGrievance() {
                           fontSize: '0.8125rem',
                         }}
                       >
-                        <span style={{ flex: 1 }}>📍 Old QR Zone location found. Not using it for this complaint. <strong>Zone:</strong> {qrContext.zoneName}</span>
+                        <span style={{ flex: 1 }}>📍 Old QR Zone location found. Not using it for this complaint. <strong>{t('deep.zonex')}</strong> {qrContext.zoneName}</span>
                         <button
                           onClick={handleClearQRLocation}
                           className="btn btn-sm btn-ghost"
@@ -1176,12 +1222,8 @@ export default function NewGrievance() {
                   <div className="form-group">
                     <div>
                       <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>{t('grievance.liveEvidence')}</h3>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
-                        Capture a fresh photo from the complaint location. CivicTrust will attach GPS coordinates and timestamp for verification.
-                      </p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>
-                        Live geo-tagged capture is recommended for evidence verification.
-                      </p>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{t('deep.captureAFreshPh')}</p>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>{t('deep.liveGeoTaggedCa')}</p>
                     </div>
                     <LiveGeoTaggedCapture onEvidenceChange={setLiveEvidence} />
                   </div>
@@ -1191,10 +1233,10 @@ export default function NewGrievance() {
 
             {step === 3 && (
               <motion.div key="step3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>Review & Submit</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{t('deep.reviewSubmit')}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div>
-                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>Contact</p>
+                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>{t('deep.contact')}</p>
                     <p style={{ fontWeight: 600 }}>{form.citizenName}</p>
                     <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>{form.citizenEmail} {form.citizenPhone && `• ${form.citizenPhone}`}</p>
                   </div>
@@ -1203,18 +1245,18 @@ export default function NewGrievance() {
                     <p style={{ fontWeight: 600, fontSize: '1.125rem' }}>{form.title}</p>
                   </div>
                   <div>
-                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>Description</p>
+                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>{t('deep.description')}</p>
                     <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>{form.description}</p>
                   </div>
                   {form.location && (
                     <div>
-                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>Location</p>
+                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>{t('deep.location')}</p>
                       <p>{form.location}</p>
                     </div>
                   )}
                   {liveEvidence?.file && (
                     <div style={{ padding: '1rem', background: 'rgba(14,165,164,0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(14,165,164,0.18)' }}>
-                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>Live Geo-Tagged Evidence</p>
+                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>{t('deep.liveGeoTaggedEv')}</p>
                       <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
                         {liveEvidence.previewUrl && (
                           <img src={liveEvidence.previewUrl} alt="Live captured evidence" style={{ width: '6rem', height: '4.5rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.22)', flexShrink: 0 }} />
@@ -1239,8 +1281,7 @@ export default function NewGrievance() {
                           {aiClassification.confidence}% Match
                         </span>
                       </p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>
-                        Priority: <span className={`badge badge-${aiClassification.priority}`}>{aiClassification.priority}</span>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>{t('deep.priorityx')}<span className={`badge badge-${aiClassification.priority}`}>{aiClassification.priority}</span>
                       </p>
                     </div>
                   )}
@@ -1248,11 +1289,9 @@ export default function NewGrievance() {
                   <div style={{ padding: '1.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-container-high)', marginTop: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--primary)', fontWeight: 700 }}>
                       <ShieldAlert size={18} />
-                      <span style={{ fontSize: '0.875rem' }}>Privacy-first grievance processing</span>
+                      <span style={{ fontSize: '0.875rem' }}>{t('deep.privacyFirstGri')}</span>
                     </div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, marginBottom: '1rem' }}>
-                      CivicTrust uses your complaint data only for classification, routing, tracking, and resolution. Sensitive information is automatically masked before AI processing to ensure privacy by design.
-                    </p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, marginBottom: '1rem' }}>{t('deep.civicTrustUsesY')}</p>
                     <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
@@ -1260,9 +1299,7 @@ export default function NewGrievance() {
                         onChange={(e) => setForm({ ...form, privacyConsent: e.target.checked })}
                         style={{ marginTop: '0.25rem', width: '1.125rem', height: '1.125rem', accentColor: 'var(--primary)', cursor: 'pointer' }}
                       />
-                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-surface)', lineHeight: 1.4 }}>
-                        I consent to the processing of my complaint data for classification, routing, tracking, and resolution.
-                      </span>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-surface)', lineHeight: 1.4 }}>{t('deep.iConsentToThePr')}</span>
                     </label>
                   </div>
                 </div>
@@ -1277,7 +1314,7 @@ export default function NewGrievance() {
               className="btn btn-outline"
               disabled={step === 1}
               style={{ opacity: step === 1 ? 0.4 : 1 }}
-            >Back</button>
+            >{t('deep.back')}</button>
             {step < 3 ? (
               <button
                 onClick={() => setStep(s => s + 1)}
@@ -1290,7 +1327,7 @@ export default function NewGrievance() {
             ) : (
               <button onClick={handleSubmit} className="btn btn-primary civic-gradient-button" disabled={loading || !form.privacyConsent}>
                 {loading ? <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }} /> : (
-                  <>Submit Grievance <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span></>
+                  <>{t('deep.submitGrievance')}<span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span></>
                 )}
               </button>
             )}
@@ -1332,7 +1369,7 @@ export default function NewGrievance() {
                   borderRadius: 'var(--radius-md)', border: '1px solid rgba(197,197,211,0.1)', marginBottom: '1rem',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Suggested Route</span>
+                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>{t('deep.suggestedRoute')}</span>
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
                       fontSize: '0.6875rem', fontWeight: 700,
@@ -1352,14 +1389,14 @@ export default function NewGrievance() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
                   <div style={{ padding: '0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(197,197,211,0.1)' }}>
-                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>Sentiment</p>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{t('deep.sentiment')}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <span style={{ fontSize: '0.8125rem', fontWeight: 600, textTransform: 'capitalize' }}>{aiNeedsReview ? 'Needs Review' : (aiClassification.sentiment || 'Neutral')}</span>
                       {aiNeedsReview ? <AlertTriangle size={14} color="#f59e0b" /> : (aiClassification.isUrgent || aiClassification.priority === 'high') && <AlertCircle size={14} color="var(--error)" />}
                     </div>
                   </div>
                   <div style={{ padding: '0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(197,197,211,0.1)' }}>
-                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>Language</p>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{t('deep.language')}</p>
                     <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{aiLanguageLabel}</p>
                   </div>
                 </div>
@@ -1373,7 +1410,7 @@ export default function NewGrievance() {
                     borderRadius: 'var(--radius-md)',
                     border: `1px solid ${aiClassification.verification.status === 'verified' ? 'rgba(14,165,164,0.2)' : 'rgba(239,153,0,0.2)'}`
                   }}>
-                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Evidence Verification</p>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>{t('deep.evidenceVerific')}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: aiClassification.verification?.status === 'verified' ? 'var(--ai-teal)' : 'var(--warning)' }}>
                         {aiClassification.verification?.status === 'verified' ? 'verified' : 'report_problem'}
@@ -1386,7 +1423,7 @@ export default function NewGrievance() {
 
                 {!aiNeedsReview && aiClassification.alternatives?.length > 0 && (
                   <div style={{ marginBottom: '0.75rem' }}>
-                    <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Other Possibilities</p>
+                    <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>{t('deep.otherPossibilit')}</p>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {aiClassification.alternatives.map((alt, i) => (
                         <span key={i} style={{
@@ -1407,7 +1444,7 @@ export default function NewGrievance() {
             ) : (
               <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '2rem', opacity: 0.4, display: 'block', marginBottom: '0.5rem' }}>psychology</span>
-                <p style={{ fontSize: '0.8125rem' }}>Start typing your grievance to see AI classification</p>
+                <p style={{ fontSize: '0.8125rem' }}>{t('deep.startTypingYour')}</p>
               </div>
             )}
           </div>

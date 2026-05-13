@@ -98,8 +98,8 @@ export async function reverseGeocode(lat, lng) {
     
     // Extract address components
     const address = data.display_name || '';
-    const city = data.address?.city || data.address?.town || data.address?.village || '';
-    const area = data.address?.suburb || data.address?.neighbourhood || '';
+    const city = data.address?.city || data.address?.town || data.address?.village || data.address?.state_district || '';
+    const area = data.address?.suburb || data.address?.neighbourhood || data.address?.city_district || '';
     const state = data.address?.state || '';
     const pincode = data.address?.postcode || '';
 
