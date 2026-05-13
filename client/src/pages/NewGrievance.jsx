@@ -108,8 +108,14 @@ const buildLocationPayload = (fields, detected, sourceOverride) => {
   return payload;
 };
 
+const translateOr = (translate, key, fallback) => {
+  const translated = translate(key);
+  return translated && translated !== key ? translated : fallback;
+};
+
 export default function NewGrievance() {
   const { t } = useLanguage();
+  const text = (key, fallback) => translateOr(t, key, fallback);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -617,29 +623,29 @@ export default function NewGrievance() {
             <span className="material-symbols-outlined filled" style={{ fontSize: '2.5rem' }}>check_circle</span>
           </div>
         </motion.div>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>{t('deep.grievanceSubmit')}</h1>
-        <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '1.125rem' }}>{t('deep.yourComplaintHa')}</p>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>{text('deep.grievanceSubmit', "Grievance Submitted!")}</h1>
+        <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '1.125rem' }}>{text('deep.yourComplaintHa', "Your complaint has been filed and is being processed by our AI system.")}</p>
         <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem', textAlign: 'left' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <span style={{ fontWeight: 600 }}>{t('deep.trackingID')}</span>
+            <span style={{ fontWeight: 600 }}>{text('deep.trackingID', "Tracking ID")}</span>
             <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.125rem' }}>{success.trackingId}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ color: 'var(--on-surface-variant)' }}>{t('deep.category')}</span>
+            <span style={{ color: 'var(--on-surface-variant)' }}>{text('deep.category', "Category")}</span>
             <span style={{ fontWeight: 600 }}>{success.category}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ color: 'var(--on-surface-variant)' }}>{t('deep.department')}</span>
+            <span style={{ color: 'var(--on-surface-variant)' }}>{text('deep.department', "Department")}</span>
             <span style={{ fontWeight: 600 }}>{success.department}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--on-surface-variant)' }}>{t('deep.priority')}</span>
+            <span style={{ color: 'var(--on-surface-variant)' }}>{text('deep.priority', "Priority")}</span>
             <span className={`badge badge-${success.priority}`}>{success.priority}</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button onClick={() => navigate('/dashboard')} className="btn btn-secondary civic-gradient-button">{t('deep.goToDashboard')}</button>
-          <button onClick={() => { setSuccess(null); setStep(1); setLiveEvidence(null); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">{t('deep.fileAnother')}</button>
+          <button onClick={() => navigate('/dashboard')} className="btn btn-secondary civic-gradient-button">{text('deep.goToDashboard', "Go to Dashboard")}</button>
+          <button onClick={() => { setSuccess(null); setStep(1); setLiveEvidence(null); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">{text('deep.fileAnother', "File Another")}</button>
         </div>
       </div>
       </div>
@@ -652,8 +658,8 @@ export default function NewGrievance() {
       {/* Page Header */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="warm-accent-card" style={{ marginBottom: '2rem', padding: '2rem' }}>
         <div className="badge badge-ai" style={{ marginBottom: '0.85rem' }}>{t('grievance.guidedIntake')}</div>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>{t('deep.newGrievance')}</h1>
-        <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)' }}>{t('deep.pleaseProvideTh')}</p>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>{text('deep.newGrievance', "New Grievance")}</h1>
+        <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)' }}>{text('deep.pleaseProvideTh', "Please provide the details of your issue to help us route it to the appropriate department.")}</p>
       </motion.div>
 
       {/* Step Progress */}
@@ -683,18 +689,18 @@ export default function NewGrievance() {
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{t('deep.contactInformat')}</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{text('deep.contactInformat', "Contact Information")}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="citizenName">{t('deep.fullName')}</label>
-                    <input id="citizenName" className="form-input" type="text" value={form.citizenName} onChange={e => setForm({ ...form, citizenName: e.target.value })} placeholder={t('deep.yourFullName')} required />
+                    <label className="form-label" htmlFor="citizenName">{text('deep.fullName', "Full Name")}</label>
+                    <input id="citizenName" className="form-input" type="text" value={form.citizenName} onChange={e => setForm({ ...form, citizenName: e.target.value })} placeholder={text('deep.yourFullName', "Your full name")} required />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="citizenEmail">{t('deep.emailAddress')}</label>
-                    <input id="citizenEmail" className="form-input" type="email" value={form.citizenEmail} onChange={e => setForm({ ...form, citizenEmail: e.target.value })} placeholder={t('deep.youExampleCom')} required />
+                    <label className="form-label" htmlFor="citizenEmail">{text('deep.emailAddress', "Email Address")}</label>
+                    <input id="citizenEmail" className="form-input" type="email" value={form.citizenEmail} onChange={e => setForm({ ...form, citizenEmail: e.target.value })} placeholder={text('deep.youExampleCom', "you@example.com")} required />
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="citizenPhone">{t('deep.phoneNumber')}</label>
+                    <label className="form-label" htmlFor="citizenPhone">{text('deep.phoneNumber', "Phone Number")}</label>
                     <input id="citizenPhone" className="form-input" type="tel" value={form.citizenPhone} onChange={e => setForm({ ...form, citizenPhone: e.target.value })} placeholder="9876543210" />
                   </div>
                 </div>
@@ -703,18 +709,18 @@ export default function NewGrievance() {
 
             {step === 2 && (
               <motion.div key="step2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{t('deep.incidentDetails')}</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{text('deep.incidentDetails', "Incident Details")}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   <div className="form-group">
                     <label className="form-label" htmlFor="title">Grievance Title</label>
-                    <input id="title" className="form-input" type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder={t('deep.brieflyDescribe')} required />
+                    <input id="title" className="form-input" type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder={text('deep.brieflyDescribe', "Briefly describe your issue")} required />
                   </div>
                   <div style={{ padding: '1rem', background: 'linear-gradient(135deg, rgba(30,58,138,0.05), rgba(14,165,164,0.05))', borderRadius: 'var(--radius-md)', border: '1px solid rgba(14,165,164,0.15)', marginBottom: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--primary)', fontWeight: 700 }}>
                       <Mic size={18} />
-                      <span style={{ fontSize: '0.875rem' }}>{t('deep.voiceFirstGriev')}</span>
+                      <span style={{ fontSize: '0.875rem' }}>{text('deep.voiceFirstGriev', "Voice-First Grievance Intake")}</span>
                     </div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{t('deep.citizensCanSpea')}</p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{text('deep.citizensCanSpea', "Citizens can speak naturally in Hindi, English, or Hinglish. CivicTrust will help structure the complaint.")}</p>
                   </div>
 
                   <VoiceComplaintInput
@@ -774,11 +780,11 @@ export default function NewGrievance() {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div className="form-group">
-                      <label className="form-label" htmlFor="dateOfIncident">{t('deep.dateOfIncident')}</label>
+                      <label className="form-label" htmlFor="dateOfIncident">{text('deep.dateOfIncident', "Date of Incident")}</label>
                       <input id="dateOfIncident" className="form-input" type="date" value={form.dateOfIncident} onChange={e => setForm({ ...form, dateOfIncident: e.target.value })} />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">{t('deep.location')}</label>
+                      <label className="form-label">{text('deep.location', "Location")}</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           id="location"
@@ -795,7 +801,7 @@ export default function NewGrievance() {
                             });
                             setLocationConfirmed(false);
                           }}
-                          placeholder={t('deep.addressOrLandma')}
+                          placeholder={text('deep.addressOrLandma', "Address or landmark")}
                         />
                         <button
                           onClick={handleDetectLocation}
@@ -848,21 +854,21 @@ export default function NewGrievance() {
                         </h4>
 
                         <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem' }}>{t('deep.gPSCoordinates')}</p>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem' }}>{text('deep.gPSCoordinates', "GPS Coordinates")}</p>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem' }}>
                             <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
-                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{t('deep.latitude')}</p>
+                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.latitude', "Latitude")}</p>
                               <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(locationDetected.lat)}</p>
                             </div>
                             <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
-                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{t('deep.longitude')}</p>
+                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.longitude', "Longitude")}</p>
                               <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(locationDetected.lng)}</p>
                             </div>
                           </div>
                         </div>
 
                         <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{t('deep.accuracy')}</p>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{text('deep.accuracy', "Accuracy")}</p>
                           <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>
                             {locationDetected.accuracy ? `${locationDetected.accuracy}m` : 'Not reported'}
                             <span style={{ color: accuracyStatus.tone, fontWeight: 700, marginLeft: '0.5rem' }}>{accuracyStatus.label}</span>
@@ -882,7 +888,7 @@ export default function NewGrievance() {
                             alignItems: 'flex-start',
                           }}>
                             <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>{t('deep.gPSIsApproximat')}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>{text('deep.gPSIsApproximat', "GPS is approximate. Please add exact landmark and pincode for better routing.")}</span>
                           </div>
                         )}
                         {showStrongAccuracyWarning && (
@@ -897,18 +903,18 @@ export default function NewGrievance() {
                             alignItems: 'flex-start',
                           }}>
                             <AlertTriangle size={14} color="#e65100" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#b34000', fontWeight: 600 }}>{t('deep.locationAccurac')}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#b34000', fontWeight: 600 }}>{text('deep.locationAccurac', "Location accuracy is moderate/low. Manual confirmation is recommended.")}</span>
                           </div>
                         )}
 
                         {/* Suggested map address */}
                         <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{t('deep.suggestedAddres')}</p>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{text('deep.suggestedAddres', "Suggested Address from Map")}</p>
                           <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.25rem' }}>{suggestedMapAddress || 'Address not available'}</p>
                           <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic', lineHeight: 1.4 }}>
                             {mapLocalityIsApproximate
                               ? 'GPS accuracy is approximate, so nearby locality names from the map may be wrong. Enter your actual area/locality and landmark below.'
-                              : t('deep.administrativeA')}
+                              : text('deep.administrativeA', "Administrative areas like Huzur Tahsil may appear from map data. Please confirm exact landmark for accurate routing.")}
                           </p>
                         </div>
 
@@ -951,7 +957,7 @@ export default function NewGrievance() {
                             maxLength={6}
                           />
                           {locationFields.pincode && !/^\d{6}$/.test(locationFields.pincode) && (
-                            <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>{t('deep.EnterAValid6Dig')}</p>
+                            <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>{text('deep.EnterAValid6Dig', "Enter a valid 6-digit Indian pincode.")}</p>
                           )}
                         </div>
 
@@ -987,7 +993,7 @@ export default function NewGrievance() {
                               </div>
                             </>
                           ) : (
-                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic' }}>{t('deep.addLandmarkAndC')}</p>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic' }}>{text('deep.addLandmarkAndC', "Add landmark and confirm pincode to preview final location.")}</p>
                           )}
                         </div>
 
@@ -1010,24 +1016,24 @@ export default function NewGrievance() {
                             alignItems: 'flex-start',
                           }}>
                             <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#ef9900' }}>{t('deep.locationAccuracx')}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#ef9900' }}>{text('deep.locationAccuracx', "Location accuracy is low. Please confirm or edit before submitting.")}</span>
                           </div>
                         )}
                         
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.75rem' }}>
                           <div>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{t('deep.latitude')}</p>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.latitude', "Latitude")}</p>
                             <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{locationDetected.lat}</p>
                           </div>
                           <div>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{t('deep.longitude')}</p>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.longitude', "Longitude")}</p>
                             <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{locationDetected.lng}</p>
                           </div>
                         </div>
                         
                         {locationDetected.address && (
                           <div style={{ marginBottom: '0.75rem' }}>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{t('deep.address')}</p>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{text('deep.address', "Address")}</p>
                             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>{locationDetected.address}</p>
                           </div>
                         )}
@@ -1046,14 +1052,14 @@ export default function NewGrievance() {
                             className="btn btn-sm btn-outline"
                             style={{ flex: '1 1 auto', minWidth: '100px' }}
                           >
-                            <Edit2 size={14} style={{ marginRight: '0.25rem' }} />{t('deep.edit')}</button>
+                            <Edit2 size={14} style={{ marginRight: '0.25rem' }} />{text('deep.edit', "Edit")}</button>
                           {locationDetected.source === 'GPS' && (
                             <button
                               onClick={handleRedetectLocation}
                               className="btn btn-sm btn-outline"
                               style={{ flex: '1 1 auto', minWidth: '100px' }}
                             >
-                              <Navigation size={14} style={{ marginRight: '0.25rem' }} />{t('deep.reDetect')}</button>
+                              <Navigation size={14} style={{ marginRight: '0.25rem' }} />{text('deep.reDetect', "Re-detect")}</button>
                           )}
                         </div>
                       </motion.div>
@@ -1100,35 +1106,35 @@ export default function NewGrievance() {
                           marginBottom: '1rem',
                         }}
                       >
-                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--on-surface)' }}>{t('deep.editLocationDet')}</h4>
+                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--on-surface)' }}>{text('deep.editLocationDet', "Edit Location Details")}</h4>
                         <div className="form-group" style={{ marginBottom: '0.75rem' }}>
                           <label className="form-label" htmlFor="manualLandmark">{t('grievance.exactLandmark')}</label>
                           <input id="manualLandmark" className="form-input" type="text" value={locationFields.landmark} onChange={e => updateLocationFields({ landmark: e.target.value })} placeholder="Example: Bansal College, Main Gate, Near Canteen" />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="city">{t('deep.cityTown')}</label>
+                            <label className="form-label" htmlFor="city">{text('deep.cityTown', "City / Town")}</label>
                             <input id="city" className="form-input" type="text" value={locationFields.city} onChange={e => updateLocationFields({ city: e.target.value })} placeholder="e.g. Bhopal" />
                           </div>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="area">{t('deep.area')}</label>
+                            <label className="form-label" htmlFor="area">{text('deep.area', "Area")}</label>
                             <input id="area" className="form-input" type="text" value={locationFields.area} onChange={e => updateLocationFields({ area: e.target.value })} placeholder="e.g. Anand Nagar" />
                           </div>
                           {/* Part B: Ward, Zone, State, Pincode with correct placeholders */}
                           <div className="form-group">
-                            <label className="form-label" htmlFor="ward">{t('deep.ward')}</label>
+                            <label className="form-label" htmlFor="ward">{text('deep.ward', "Ward")}</label>
                             <input id="ward" className="form-input" type="text" value={locationFields.ward} onChange={e => updateLocationFields({ ward: e.target.value })} placeholder="Example: Ward 1" />
                           </div>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="zone">{t('deep.zone')}</label>
+                            <label className="form-label" htmlFor="zone">{text('deep.zone', "Zone")}</label>
                             <input id="zone" className="form-input" type="text" value={locationFields.zone} onChange={e => updateLocationFields({ zone: e.target.value })} placeholder="Example: North Zone" />
                           </div>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="state">{t('deep.state')}</label>
+                            <label className="form-label" htmlFor="state">{text('deep.state', "State")}</label>
                             <input id="state" className="form-input" type="text" value={locationFields.state} onChange={e => updateLocationFields({ state: e.target.value })} placeholder="e.g. Madhya Pradesh" />
                           </div>
                           <div className="form-group">
-                            <label className="form-label" htmlFor="pincode">{t('deep.pincode')}</label>
+                            <label className="form-label" htmlFor="pincode">{text('deep.pincode', "Pincode")}</label>
                             <input
                               id="pincode"
                               className="form-input"
@@ -1140,13 +1146,13 @@ export default function NewGrievance() {
                               maxLength={6}
                             />
                             {locationFields.pincode && !/^\d{6}$/.test(locationFields.pincode) && (
-                              <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>{t('deep.EnterAValid6Dig')}</p>
+                              <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>{text('deep.EnterAValid6Dig', "Enter a valid 6-digit Indian pincode.")}</p>
                             )}
                           </div>
                         </div>
                         <div className="form-group">
-                          <label className="form-label" htmlFor="address">{t('deep.fullAddress')}</label>
-                          <input id="address" className="form-input" type="text" value={locationFields.address} onChange={e => updateLocationFields({ address: e.target.value })} placeholder={t('deep.completeAddress')} />
+                          <label className="form-label" htmlFor="address">{text('deep.fullAddress', "Full Address")}</label>
+                          <input id="address" className="form-input" type="text" value={locationFields.address} onChange={e => updateLocationFields({ address: e.target.value })} placeholder={text('deep.completeAddress', "Complete address")} />
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button
@@ -1154,12 +1160,12 @@ export default function NewGrievance() {
                             className="btn btn-sm btn-primary"
                             style={{ flex: 1 }}
                           >
-                            <Check size={14} style={{ marginRight: '0.25rem' }} />{t('deep.saveChanges')}</button>
+                            <Check size={14} style={{ marginRight: '0.25rem' }} />{text('deep.saveChanges', "Save Changes")}</button>
                           <button
                             onClick={() => setShowLocationEdit(false)}
                             className="btn btn-sm btn-outline"
                             style={{ flex: 1 }}
-                          >{t('deep.cancel')}</button>
+                          >{text('deep.cancel', "Cancel")}</button>
                         </div>
                       </motion.div>
                     )}
@@ -1184,7 +1190,7 @@ export default function NewGrievance() {
                           fontSize: '0.8125rem',
                         }}
                       >
-                        <span style={{ flex: 1 }}>📍 Old QR Zone location found. Not using it for this complaint. <strong>{t('deep.zonex')}</strong> {qrContext.zoneName}</span>
+                        <span style={{ flex: 1 }}>📍 Old QR Zone location found. Not using it for this complaint. <strong>{text('deep.zonex', "Zone:")}</strong> {qrContext.zoneName}</span>
                         <button
                           onClick={handleClearQRLocation}
                           className="btn btn-sm btn-ghost"
@@ -1222,8 +1228,8 @@ export default function NewGrievance() {
                   <div className="form-group">
                     <div>
                       <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>{t('grievance.liveEvidence')}</h3>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{t('deep.captureAFreshPh')}</p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>{t('deep.liveGeoTaggedCa')}</p>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{text('deep.captureAFreshPh', "Capture a fresh photo from the complaint location. CivicTrust will attach GPS coordinates and timestamp for verification.")}</p>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>{text('deep.liveGeoTaggedCa', "Live geo-tagged capture is recommended for evidence verification.")}</p>
                     </div>
                     <LiveGeoTaggedCapture onEvidenceChange={setLiveEvidence} />
                   </div>
@@ -1233,10 +1239,10 @@ export default function NewGrievance() {
 
             {step === 3 && (
               <motion.div key="step3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{t('deep.reviewSubmit')}</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--surface-container)' }}>{text('deep.reviewSubmit', "Review & Submit")}</h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div>
-                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>{t('deep.contact')}</p>
+                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>{text('deep.contact', "Contact")}</p>
                     <p style={{ fontWeight: 600 }}>{form.citizenName}</p>
                     <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>{form.citizenEmail} {form.citizenPhone && `• ${form.citizenPhone}`}</p>
                   </div>
@@ -1245,18 +1251,18 @@ export default function NewGrievance() {
                     <p style={{ fontWeight: 600, fontSize: '1.125rem' }}>{form.title}</p>
                   </div>
                   <div>
-                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>{t('deep.description')}</p>
+                    <p className="form-label" style={{ marginBottom: '0.5rem' }}>{text('deep.description', "Description")}</p>
                     <p style={{ color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>{form.description}</p>
                   </div>
                   {form.location && (
                     <div>
-                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>{t('deep.location')}</p>
+                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>{text('deep.location', "Location")}</p>
                       <p>{form.location}</p>
                     </div>
                   )}
                   {liveEvidence?.file && (
                     <div style={{ padding: '1rem', background: 'rgba(14,165,164,0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(14,165,164,0.18)' }}>
-                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>{t('deep.liveGeoTaggedEv')}</p>
+                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>{text('deep.liveGeoTaggedEv', "Live Geo-Tagged Evidence")}</p>
                       <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
                         {liveEvidence.previewUrl && (
                           <img src={liveEvidence.previewUrl} alt="Live captured evidence" style={{ width: '6rem', height: '4.5rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.22)', flexShrink: 0 }} />
@@ -1281,7 +1287,7 @@ export default function NewGrievance() {
                           {aiClassification.confidence}% Match
                         </span>
                       </p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>{t('deep.priorityx')}<span className={`badge badge-${aiClassification.priority}`}>{aiClassification.priority}</span>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>{text('deep.priorityx', "Priority: ")}<span className={`badge badge-${aiClassification.priority}`}>{aiClassification.priority}</span>
                       </p>
                     </div>
                   )}
@@ -1289,9 +1295,9 @@ export default function NewGrievance() {
                   <div style={{ padding: '1.5rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid var(--surface-container-high)', marginTop: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--primary)', fontWeight: 700 }}>
                       <ShieldAlert size={18} />
-                      <span style={{ fontSize: '0.875rem' }}>{t('deep.privacyFirstGri')}</span>
+                      <span style={{ fontSize: '0.875rem' }}>{text('deep.privacyFirstGri', "Privacy-first grievance processing")}</span>
                     </div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, marginBottom: '1rem' }}>{t('deep.civicTrustUsesY')}</p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, marginBottom: '1rem' }}>{text('deep.civicTrustUsesY', "CivicTrust uses your complaint data only for classification, routing, tracking, and resolution. Sensitive information is automatically masked before AI processing to ensure privacy by design.")}</p>
                     <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
@@ -1299,7 +1305,7 @@ export default function NewGrievance() {
                         onChange={(e) => setForm({ ...form, privacyConsent: e.target.checked })}
                         style={{ marginTop: '0.25rem', width: '1.125rem', height: '1.125rem', accentColor: 'var(--primary)', cursor: 'pointer' }}
                       />
-                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-surface)', lineHeight: 1.4 }}>{t('deep.iConsentToThePr')}</span>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--on-surface)', lineHeight: 1.4 }}>{text('deep.iConsentToThePr', "I consent to the processing of my complaint data for classification, routing, tracking, and resolution.")}</span>
                     </label>
                   </div>
                 </div>
@@ -1314,7 +1320,7 @@ export default function NewGrievance() {
               className="btn btn-outline"
               disabled={step === 1}
               style={{ opacity: step === 1 ? 0.4 : 1 }}
-            >{t('deep.back')}</button>
+            >{text('deep.back', "Back")}</button>
             {step < 3 ? (
               <button
                 onClick={() => setStep(s => s + 1)}
@@ -1327,7 +1333,7 @@ export default function NewGrievance() {
             ) : (
               <button onClick={handleSubmit} className="btn btn-primary civic-gradient-button" disabled={loading || !form.privacyConsent}>
                 {loading ? <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }} /> : (
-                  <>{t('deep.submitGrievance')}<span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span></>
+                  <>{text('deep.submitGrievance', "Submit Grievance")}<span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span></>
                 )}
               </button>
             )}
@@ -1369,7 +1375,7 @@ export default function NewGrievance() {
                   borderRadius: 'var(--radius-md)', border: '1px solid rgba(197,197,211,0.1)', marginBottom: '1rem',
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>{t('deep.suggestedRoute')}</span>
+                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>{text('deep.suggestedRoute', "Suggested Route")}</span>
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
                       fontSize: '0.6875rem', fontWeight: 700,
@@ -1389,14 +1395,14 @@ export default function NewGrievance() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
                   <div style={{ padding: '0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(197,197,211,0.1)' }}>
-                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{t('deep.sentiment')}</p>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{text('deep.sentiment', "Sentiment")}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <span style={{ fontSize: '0.8125rem', fontWeight: 600, textTransform: 'capitalize' }}>{aiNeedsReview ? 'Needs Review' : (aiClassification.sentiment || 'Neutral')}</span>
                       {aiNeedsReview ? <AlertTriangle size={14} color="#f59e0b" /> : (aiClassification.isUrgent || aiClassification.priority === 'high') && <AlertCircle size={14} color="var(--error)" />}
                     </div>
                   </div>
                   <div style={{ padding: '0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(197,197,211,0.1)' }}>
-                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{t('deep.language')}</p>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{text('deep.language', "Language")}</p>
                     <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{aiLanguageLabel}</p>
                   </div>
                 </div>
@@ -1410,7 +1416,7 @@ export default function NewGrievance() {
                     borderRadius: 'var(--radius-md)',
                     border: `1px solid ${aiClassification.verification.status === 'verified' ? 'rgba(14,165,164,0.2)' : 'rgba(239,153,0,0.2)'}`
                   }}>
-                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>{t('deep.evidenceVerific')}</p>
+                    <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>{text('deep.evidenceVerific', "Evidence Verification")}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: aiClassification.verification?.status === 'verified' ? 'var(--ai-teal)' : 'var(--warning)' }}>
                         {aiClassification.verification?.status === 'verified' ? 'verified' : 'report_problem'}
@@ -1423,7 +1429,7 @@ export default function NewGrievance() {
 
                 {!aiNeedsReview && aiClassification.alternatives?.length > 0 && (
                   <div style={{ marginBottom: '0.75rem' }}>
-                    <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>{t('deep.otherPossibilit')}</p>
+                    <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>{text('deep.otherPossibilit', "Other Possibilities")}</p>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {aiClassification.alternatives.map((alt, i) => (
                         <span key={i} style={{
@@ -1444,7 +1450,7 @@ export default function NewGrievance() {
             ) : (
               <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '2rem', opacity: 0.4, display: 'block', marginBottom: '0.5rem' }}>psychology</span>
-                <p style={{ fontSize: '0.8125rem' }}>{t('deep.startTypingYour')}</p>
+                <p style={{ fontSize: '0.8125rem' }}>{text('deep.startTypingYour', "Start typing your complaint to see AI routing suggestions.")}</p>
               </div>
             )}
           </div>
