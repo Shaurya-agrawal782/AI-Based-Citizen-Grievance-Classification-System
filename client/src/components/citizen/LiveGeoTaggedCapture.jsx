@@ -18,7 +18,7 @@ const getCameraConstraints = (mode, exact = false) => ({
   }
 });
 
-export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange }) {
+export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange, authoritativeLocation }) {
   const [status, setStatus] = useState('idle');
   const [evidence, setEvidence] = useState(null);
   const [landmark, setLandmark] = useState('');
@@ -48,6 +48,76 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange 
       return 'N/A';
     }
   };
+
+  const mergeAuthoritativeLocation = useCallback((nextEvidence) => {
+    if (!nextEvidence || !authoritativeLocation) return nextEvidence;
+
+    const authoritativeLat = authoritativeLocation.lat ?? authoritativeLocation.coordinates?.lat ?? null;
+    const authoritativeLng = authoritativeLocation.lng ?? authoritativeLocation.coordinates?.lng ?? null;
+    const hasAuthoritativeCoords = Number.isFinite(Number(authoritativeLat)) && Number.isFinite(Number(authoritativeLng));
+    const authoritativeAddress = (
+      authoritativeLocation.finalAddress
+      || authoritativeLocation.address
+      || authoritativeLocation.displayAddress
+      || ''
+    ).trim();
+    const authoritativeLandmark = (authoritativeLocation.landmark || '').trim();
+
+    if (!hasAuthoritativeCoords && !authoritativeAddress && !authoritativeLandmark) return nextEvidence;
+
+    const rawGeoTag = nextEvidence.geoTag || null;
+    const rawCaptureGeoTag = rawGeoTag?.rawCaptureGeoTag || rawGeoTag;
+    const mergedGeoTag = {
+      ...(rawGeoTag || {}),
+      lat: hasAuthoritativeCoords ? Number(authoritativeLat) : rawGeoTag?.lat ?? null,
+      lng: hasAuthoritativeCoords ? Number(authoritativeLng) : rawGeoTag?.lng ?? null,
+      accuracy: authoritativeLocation.accuracy ?? rawGeoTag?.accuracy ?? null,
+      capturedAt: rawGeoTag?.capturedAt || new Date().toISOString(),
+      source: authoritativeLocation.source || rawGeoTag?.source || 'GPS',
+      address: authoritativeAddress || rawGeoTag?.address || '',
+      landmark: nextEvidence.landmark || authoritativeLandmark || rawGeoTag?.landmark || '',
+      confirmedFromComplaintLocation: true,
+      rawCaptureGeoTag: rawCaptureGeoTag
+        ? {
+            lat: rawCaptureGeoTag.lat ?? null,
+            lng: rawCaptureGeoTag.lng ?? null,
+            accuracy: rawCaptureGeoTag.accuracy ?? null,
+            address: rawCaptureGeoTag.address || '',
+            source: rawCaptureGeoTag.source || 'GPS',
+          }
+        : null,
+    };
+
+    return {
+      ...nextEvidence,
+      landmark: nextEvidence.landmark || authoritativeLandmark,
+      geoTag: mergedGeoTag,
+    };
+  }, [authoritativeLocation]);
+
+  useEffect(() => {
+    if (!evidence || !authoritativeLocation) return;
+
+    const updatedEvidence = mergeAuthoritativeLocation(evidence);
+    const currentGeoTag = evidence.geoTag || {};
+    const updatedGeoTag = updatedEvidence?.geoTag || {};
+    const changed = (
+      currentGeoTag.lat !== updatedGeoTag.lat
+      || currentGeoTag.lng !== updatedGeoTag.lng
+      || currentGeoTag.accuracy !== updatedGeoTag.accuracy
+      || currentGeoTag.address !== updatedGeoTag.address
+      || currentGeoTag.landmark !== updatedGeoTag.landmark
+      || evidence.landmark !== updatedEvidence?.landmark
+    );
+
+    if (!changed) return;
+
+    if (!landmark && updatedEvidence?.landmark) {
+      setLandmark(updatedEvidence.landmark);
+    }
+    setEvidence(updatedEvidence);
+    onEvidenceChange?.(updatedEvidence);
+  }, [authoritativeLocation, evidence, landmark, mergeAuthoritativeLocation, onEvidenceChange]);
 
   const stopCamera = useCallback(() => {
     setVideoReady(false);
@@ -120,9 +190,13 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange 
   }, [cameraStream]);
 
   const publishEvidence = (nextEvidence, nextStatus = 'preview') => {
-    setEvidence(nextEvidence);
+    const evidenceWithConfirmedLocation = mergeAuthoritativeLocation(nextEvidence);
+    if (!landmark && evidenceWithConfirmedLocation?.landmark) {
+      setLandmark(evidenceWithConfirmedLocation.landmark);
+    }
+    setEvidence(evidenceWithConfirmedLocation);
     setStatus(nextStatus);
-    onEvidenceChange?.(nextEvidence);
+    onEvidenceChange?.(evidenceWithConfirmedLocation);
   };
 
   const requestGPS = async (file, previewUrl) => {

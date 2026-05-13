@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Loader2, AlertCircle, AlertTriangle, ShieldAlert, Navigation, Trash2, Edit2, Check } from 'lucide-react';
@@ -166,6 +166,21 @@ export default function NewGrievance() {
   });
 
   const [voiceLanguage, setVoiceLanguage] = useState('hi-IN');
+
+  const confirmedEvidenceLocation = useMemo(() => {
+    const fields = {
+      ...locationFields,
+      address: locationFields.address?.trim() || form.location,
+    };
+
+    if (!fields.address && !fields.landmark && !locationDetected && !form.location) return null;
+
+    return buildLocationPayload(
+      fields,
+      locationDetected,
+      form.locationSource || locationDetected?.source || 'Manual'
+    );
+  }, [form.location, form.locationSource, locationDetected, locationFields]);
 
   useEffect(() => {
     locationFieldsRef.current = locationFields;
@@ -433,14 +448,30 @@ export default function NewGrievance() {
   const buildLiveEvidenceGeoTag = (finalLocation) => {
     if (!liveEvidence?.file) return null;
 
+    const finalLat = finalLocation?.lat ?? finalLocation?.coordinates?.lat ?? null;
+    const finalLng = finalLocation?.lng ?? finalLocation?.coordinates?.lng ?? null;
+    const finalAddress = finalLocation?.finalAddress || finalLocation?.address || finalLocation?.displayAddress || form.location || '';
+    const capturedGeoTag = liveEvidence.geoTag?.rawCaptureGeoTag || liveEvidence.geoTag;
+    const rawCaptureGeoTag = capturedGeoTag
+      ? {
+          lat: capturedGeoTag.lat ?? null,
+          lng: capturedGeoTag.lng ?? null,
+          accuracy: capturedGeoTag.accuracy ?? null,
+          address: capturedGeoTag.address || '',
+          source: capturedGeoTag.source || 'GPS',
+        }
+      : null;
+
     return {
-      lat: liveEvidence.geoTag?.lat ?? null,
-      lng: liveEvidence.geoTag?.lng ?? null,
-      accuracy: liveEvidence.geoTag?.accuracy ?? null,
+      lat: finalLat ?? liveEvidence.geoTag?.lat ?? null,
+      lng: finalLng ?? liveEvidence.geoTag?.lng ?? null,
+      accuracy: finalLocation?.accuracy ?? liveEvidence.geoTag?.accuracy ?? null,
       capturedAt: liveEvidence.geoTag?.capturedAt || new Date().toISOString(),
-      source: liveEvidence.geoTag?.source || 'GPS',
-      landmark: liveEvidence.landmark || liveEvidence.geoTag?.landmark || finalLocation?.landmark || '',
-      address: liveEvidence.geoTag?.address || finalLocation?.address || form.location || ''
+      source: finalLocation?.source || liveEvidence.geoTag?.source || 'GPS',
+      landmark: finalLocation?.landmark || liveEvidence.landmark || liveEvidence.geoTag?.landmark || '',
+      address: finalAddress || liveEvidence.geoTag?.address || '',
+      confirmedFromComplaintLocation: Boolean(finalLocation),
+      rawCaptureGeoTag,
     };
   };
 
@@ -1231,7 +1262,10 @@ export default function NewGrievance() {
                       <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{text('deep.captureAFreshPh', "Capture a fresh photo from the complaint location. CivicTrust will attach GPS coordinates and timestamp for verification.")}</p>
                       <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>{text('deep.liveGeoTaggedCa', "Live geo-tagged capture is recommended for evidence verification.")}</p>
                     </div>
-                    <LiveGeoTaggedCapture onEvidenceChange={setLiveEvidence} />
+                    <LiveGeoTaggedCapture
+                      onEvidenceChange={setLiveEvidence}
+                      authoritativeLocation={confirmedEvidenceLocation}
+                    />
                   </div>
                 </div>
               </motion.div>

@@ -17,6 +17,12 @@ function formatWatermarkDate(dateInput) {
   }
 }
 
+function compactWatermarkText(value, maxLength = 72) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 3)}...`;
+}
+
 /**
  * Draw a semi-transparent watermark panel on the bottom-left of the image.
  *
@@ -58,12 +64,14 @@ export async function watermarkImage(file, geoTag, landmark = '') {
         const lng = geoTag?.lng != null ? Number(geoTag.lng).toFixed(6) : 'N/A';
         const accuracy = geoTag?.accuracy != null ? `${Math.round(geoTag.accuracy)} m` : 'N/A';
         const time = formatWatermarkDate(geoTag?.capturedAt || new Date());
+        const address = compactWatermarkText(geoTag?.address || '');
 
         const lines = [
           '📍 CivicTrust Evidence',
           `Lat: ${lat}   Lng: ${lng}`,
           `Accuracy: ${accuracy}`,
           `Time: ${time}`,
+          ...(address ? [`Address: ${address}`] : []),
           ...(landmark ? [`Place: ${landmark}`] : []),
         ];
 
