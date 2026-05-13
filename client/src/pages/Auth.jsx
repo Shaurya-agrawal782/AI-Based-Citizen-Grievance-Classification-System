@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,6 +15,7 @@ export default function Auth() {
   const [demoResetUrl, setDemoResetUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -126,20 +128,20 @@ export default function Auth() {
   };
 
   const pageTitle = authMode === 'forgot'
-    ? 'Reset Your Password'
+    ? t('auth.resetPasswordTitle')
     : authMode === 'reset'
-    ? 'Create New Password'
+    ? t('auth.createPasswordTitle')
     : isLogin
-    ? 'Welcome Back'
-    : 'Create Account';
+    ? t('auth.welcomeBack')
+    : t('auth.createAccount');
 
   const pageSubtitle = authMode === 'forgot'
-    ? 'Enter your email and we will generate a secure reset link.'
+    ? t('auth.resetSubtitle')
     : authMode === 'reset'
-    ? 'Choose a new password for your CivicTrust account.'
+    ? t('auth.createPasswordSubtitle')
     : isLogin
-    ? 'Sign in to access your grievance dashboard'
-    : 'Register to start filing civic grievances';
+    ? t('auth.signInSubtitle')
+    : t('auth.registerSubtitle');
 
   const renderStatus = () => (
     <>
@@ -205,8 +207,8 @@ export default function Auth() {
 
         {authMode === 'auth' && (
           <div className="auth-toggle">
-            <button className={isLogin ? 'active' : ''} onClick={() => switchAuthMode(true)}>Sign In</button>
-            <button className={!isLogin ? 'active' : ''} onClick={() => switchAuthMode(false)}>Register</button>
+            <button className={isLogin ? 'active' : ''} onClick={() => switchAuthMode(true)}>{t('common.signIn')}</button>
+            <button className={!isLogin ? 'active' : ''} onClick={() => switchAuthMode(false)}>{t('common.register')}</button>
           </div>
         )}
 
@@ -223,12 +225,12 @@ export default function Auth() {
             >
               {!isLogin && (
                 <div className="form-group">
-                  <label className="form-label" htmlFor="name">Full Name</label>
+                  <label className="form-label" htmlFor="name">{t('auth.fullName')}</label>
                   <input
                     id="name"
                     className="form-input"
                     type="text"
-                    placeholder="Enter your full name"
+                    placeholder={t('auth.fullNamePlaceholder')}
                     value={form.name}
                     onChange={e => setForm({ ...form, name: e.target.value })}
                     required={!isLogin}
@@ -237,12 +239,12 @@ export default function Auth() {
               )}
 
               <div className="form-group">
-                <label className="form-label" htmlFor="email">Email Address</label>
+                <label className="form-label" htmlFor="email">{t('auth.email')}</label>
                 <input
                   id="email"
                   className="form-input"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={form.email}
                   onChange={e => setForm({ ...form, email: e.target.value })}
                   required
@@ -251,7 +253,7 @@ export default function Auth() {
 
               <div className="form-group">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-                  <label className="form-label" htmlFor="password">Password</label>
+                  <label className="form-label" htmlFor="password">{t('auth.password')}</label>
                   {isLogin && (
                     <button
                       type="button"
@@ -259,7 +261,7 @@ export default function Auth() {
                       onClick={goToForgotPassword}
                       style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700 }}
                     >
-                      Forgot password?
+                      {t('auth.forgotPassword')}
                     </button>
                   )}
                 </div>
@@ -267,7 +269,7 @@ export default function Auth() {
                   id="password"
                   className="form-input"
                   type="password"
-                  placeholder={isLogin ? 'Enter your password' : 'Min 6 characters'}
+                  placeholder={isLogin ? t('auth.passwordPlaceholderLogin') : t('auth.passwordPlaceholderReg')}
                   value={form.password}
                   onChange={e => setForm({ ...form, password: e.target.value })}
                   required
@@ -277,12 +279,12 @@ export default function Auth() {
 
               {!isLogin && (
                 <div className="form-group">
-                  <label className="form-label" htmlFor="phone">Phone Number (Optional)</label>
+                  <label className="form-label" htmlFor="phone">{t('auth.phone')}</label>
                   <input
                     id="phone"
                     className="form-input"
                     type="tel"
-                    placeholder="9876543210"
+                    placeholder={t('auth.phonePlaceholder')}
                     value={form.phone}
                     onChange={e => setForm({ ...form, phone: e.target.value })}
                   />
@@ -301,7 +303,7 @@ export default function Auth() {
                   <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }}></div>
                 ) : (
                   <>
-                    {isLogin ? 'Sign In' : 'Create Account'}
+                    {isLogin ? t('common.signIn') : t('common.register')}
                     <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>arrow_forward</span>
                   </>
                 )}
@@ -320,12 +322,12 @@ export default function Auth() {
               style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
             >
               <div className="form-group">
-                <label className="form-label" htmlFor="resetEmail">Account Email</label>
+                <label className="form-label" htmlFor="resetEmail">{t('auth.accountEmail')}</label>
                 <input
                   id="resetEmail"
                   className="form-input"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={resetForm.email}
                   onChange={e => setResetForm({ ...resetForm, email: e.target.value })}
                   required
@@ -340,11 +342,11 @@ export default function Auth() {
                 disabled={loading}
                 style={{ width: '100%', padding: '0.875rem', fontSize: '0.9375rem' }}
               >
-                {loading ? <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }}></div> : 'Generate Reset Link'}
+                {loading ? <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }}></div> : t('auth.generateResetLink')}
               </button>
 
               <button type="button" className="btn btn-ghost premium-button-hover" onClick={goToLogin}>
-                Back to Sign In
+                {t('auth.backToSignIn')}
               </button>
             </motion.form>
           )}
@@ -367,12 +369,12 @@ export default function Auth() {
               )}
 
               <div className="form-group">
-                <label className="form-label" htmlFor="newPassword">New Password</label>
+                <label className="form-label" htmlFor="newPassword">{t('auth.newPassword')}</label>
                 <input
                   id="newPassword"
                   className="form-input"
                   type="password"
-                  placeholder="Min 6 characters"
+                  placeholder={t('auth.passwordPlaceholderReg')}
                   value={resetForm.password}
                   onChange={e => setResetForm({ ...resetForm, password: e.target.value })}
                   required
@@ -381,12 +383,12 @@ export default function Auth() {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="confirmPassword">Confirm Password</label>
+                <label className="form-label" htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
                 <input
                   id="confirmPassword"
                   className="form-input"
                   type="password"
-                  placeholder="Re-enter new password"
+                  placeholder={t('auth.confirmPasswordPlaceholder')}
                   value={resetForm.confirmPassword}
                   onChange={e => setResetForm({ ...resetForm, confirmPassword: e.target.value })}
                   required
@@ -402,11 +404,11 @@ export default function Auth() {
                 disabled={loading}
                 style={{ width: '100%', padding: '0.875rem', fontSize: '0.9375rem' }}
               >
-                {loading ? <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }}></div> : 'Update Password'}
+                {loading ? <div className="spinner" style={{ width: '1.25rem', height: '1.25rem', borderWidth: '2px' }}></div> : t('auth.updatePassword')}
               </button>
 
               <button type="button" className="btn btn-ghost premium-button-hover" onClick={goToForgotPassword}>
-                Request a New Link
+                {t('auth.requestNewLink')}
               </button>
             </motion.form>
           )}
@@ -414,9 +416,9 @@ export default function Auth() {
 
         {authMode === 'auth' && isLogin && (
           <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
-            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Demo Credentials:</p>
-            <p>Admin: admin@civictrust.gov / admin123</p>
-            <p>Citizen: jane@example.com / citizen123</p>
+            <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{t('auth.demoCredentials')}</p>
+            <p>{t('auth.demoAdmin')}</p>
+            <p>{t('auth.demoCitizen')}</p>
           </div>
         )}
       </motion.div>

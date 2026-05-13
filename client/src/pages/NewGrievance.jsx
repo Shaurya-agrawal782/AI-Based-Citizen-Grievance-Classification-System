@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Loader2, AlertCircle, AlertTriangle, ShieldAlert, Navigation, Trash2, Edit2, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { grievanceAPI, aiAPI } from '../services/api';
 import VoiceComplaintInput from '../components/citizen/VoiceComplaintInput';
 import GrievanceCopilot from '../components/citizen/GrievanceCopilot';
@@ -94,9 +95,8 @@ const buildLocationPayload = (fields, detected, sourceOverride) => {
   return payload;
 };
 
-const getFileKey = (file, index) => `${file.name}-${file.size}-${file.lastModified}-${index}`;
-
 export default function NewGrievance() {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -109,11 +109,7 @@ export default function NewGrievance() {
   const [aiLoading, setAiLoading] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState(null);
   const [duplicateLoading, setDuplicateLoading] = useState(false);
-  const [files, setFiles] = useState([]);
-  const [filePreviewUrls, setFilePreviewUrls] = useState({});
   const [liveEvidence, setLiveEvidence] = useState(null);
-  const [liveCaptureStatus, setLiveCaptureStatus] = useState('idle');
-  const [isDragging, setIsDragging] = useState(false);
   
   // Location management
   const [isLocating, setIsLocating] = useState(false);
@@ -136,35 +132,6 @@ export default function NewGrievance() {
     pincode: '',
   });
   const locationFieldsRef = useRef(locationFields);
-  const fileInputRef = useRef(null);
-
-  const handleFileSelect = (e) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    if (!selectedFiles.length) return;
-    setFiles(prev => [...prev, ...selectedFiles]);
-    e.target.value = '';
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const droppedFiles = Array.from(e.dataTransfer.files || []);
-    if (!droppedFiles.length) return;
-    setFiles(prev => [...prev, ...droppedFiles]);
-  };
-
-  const removeFile = (index) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
-  };
 
   const [form, setForm] = useState({
     citizenName: user?.name || '',
@@ -180,22 +147,6 @@ export default function NewGrievance() {
   });
 
   const [voiceLanguage, setVoiceLanguage] = useState('hi-IN');
-
-  useEffect(() => {
-    const previews = {};
-
-    files.forEach((file, index) => {
-      if (file.type?.startsWith('image/')) {
-        previews[getFileKey(file, index)] = URL.createObjectURL(file);
-      }
-    });
-
-    setFilePreviewUrls(previews);
-
-    return () => {
-      Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [files]);
 
   useEffect(() => {
     locationFieldsRef.current = locationFields;
@@ -502,28 +453,23 @@ export default function NewGrievance() {
         locationConfirmed,
       };
 
-      const shouldUseMultipart = hasLiveEvidence || files.length > 0;
       let res;
 
-      if (shouldUseMultipart) {
+      if (hasLiveEvidence) {
         const formData = new FormData();
         appendPayloadToFormData(formData, payload);
 
-        if (hasLiveEvidence) {
-          const liveGeoTag = buildLiveEvidenceGeoTag(finalLocation);
-          let liveFile = liveEvidence.file;
+        const liveGeoTag = buildLiveEvidenceGeoTag(finalLocation);
+        let liveFile = liveEvidence.file;
 
-          try {
-            liveFile = await watermarkImage(liveEvidence.file, liveGeoTag, liveGeoTag?.landmark || '');
-          } catch (error) {
-            console.warn('Evidence watermarking skipped:', error);
-          }
-
-          formData.append('liveEvidence', liveFile, liveFile.name || liveEvidence.file.name || 'live-evidence.jpg');
-          formData.append('liveEvidenceGeoTag', JSON.stringify(liveGeoTag));
+        try {
+          liveFile = await watermarkImage(liveEvidence.file, liveGeoTag, liveGeoTag?.landmark || '');
+        } catch (error) {
+          console.warn('Evidence watermarking skipped:', error);
         }
 
-        files.forEach(file => formData.append('images', file, file.name));
+        formData.append('liveEvidence', liveFile, liveFile.name || liveEvidence.file.name || 'live-evidence.jpg');
+        formData.append('liveEvidenceGeoTag', JSON.stringify(liveGeoTag));
         res = await grievanceAPI.create(formData);
       } else {
         res = await grievanceAPI.create(payload);
@@ -566,27 +512,11 @@ export default function NewGrievance() {
         setAiLoading(true);
         setDuplicateLoading(true);
         try {
-          // Prepare image data for Gemini Vision
-          const aiImages = await Promise.all(files.map(async (file) => {
-            if (file.type.startsWith('image/')) {
-              const base64 = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.readAsDataURL(file);
-              });
-              return { inlineData: { data: base64, mimeType: file.type } };
-            }
-            return null;
-          }));
-
-          const activeImages = aiImages.filter(img => img !== null);
-
           // Parallel AI classification and Duplicate check
           const [classRes, dupRes] = await Promise.all([
             aiAPI.classify({
               title: form.title,
-              description: form.description,
-              images: activeImages
+              description: form.description
             }),
             aiAPI.checkDuplicate({ title: form.title, description: form.description })
           ]);
@@ -602,7 +532,7 @@ export default function NewGrievance() {
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [form.title, form.description, step, files]);
+  }, [form.title, form.description, step]);
 
   const canProceed = () => {
     if (step === 1) return form.citizenName && form.citizenEmail;
@@ -616,7 +546,6 @@ export default function NewGrievance() {
   // Two-level accuracy warnings
   const showAccuracyWarning = locationDetected?.source === 'GPS' && gpsAccuracy > 50 && gpsAccuracy <= 100;
   const showStrongAccuracyWarning = locationDetected?.source === 'GPS' && gpsAccuracy > 100;
-  const liveCaptureHidesUpload = ['camera-loading', 'camera', 'capturing', 'gps', 'preview', 'gps-denied'].includes(liveCaptureStatus) || Boolean(liveEvidence?.file);
   const aiNeedsReview = isLowConfidenceClassification(aiClassification);
   const aiConfidencePercent = normalizeConfidencePercent(aiClassification?.confidence ?? aiClassification?.classification?.confidence);
   const aiSuggestedRoute = aiNeedsReview
@@ -671,7 +600,7 @@ export default function NewGrievance() {
         </div>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <button onClick={() => navigate('/dashboard')} className="btn btn-secondary civic-gradient-button">Go to Dashboard</button>
-          <button onClick={() => { setSuccess(null); setStep(1); setFiles([]); setLiveEvidence(null); setLiveCaptureStatus('idle'); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">File Another</button>
+          <button onClick={() => { setSuccess(null); setStep(1); setLiveEvidence(null); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">File Another</button>
         </div>
       </div>
       </div>
@@ -683,7 +612,7 @@ export default function NewGrievance() {
     <div className="container page-content" style={{ maxWidth: '1200px' }}>
       {/* Page Header */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="warm-accent-card" style={{ marginBottom: '2rem', padding: '2rem' }}>
-        <div className="badge badge-ai" style={{ marginBottom: '0.85rem' }}>Guided Civic Intake</div>
+        <div className="badge badge-ai" style={{ marginBottom: '0.85rem' }}>{t('grievance.guidedIntake')}</div>
         <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>New Grievance</h1>
         <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)' }}>
           Please provide the details of your issue to help us route it to the appropriate department.
@@ -848,7 +777,7 @@ export default function NewGrievance() {
 
                   {!locationDetected && (
                     <div className="form-group">
-                      <label className="form-label" htmlFor="exactLandmark">Exact Landmark / Place</label>
+                      <label className="form-label" htmlFor="exactLandmark">{t('grievance.exactLandmark')}</label>
                       <input
                         id="exactLandmark"
                         className="form-input"
@@ -946,7 +875,7 @@ export default function NewGrievance() {
 
                         {/* Part B: Landmark field in location card */}
                         <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                          <label className="form-label" htmlFor="detectedLandmark">Exact Landmark / Place</label>
+                          <label className="form-label" htmlFor="detectedLandmark">{t('grievance.exactLandmark')}</label>
                           <input
                             id="detectedLandmark"
                             className="form-input"
@@ -959,7 +888,7 @@ export default function NewGrievance() {
 
                         {/* Part B: Quick pincode confirmation in location card */}
                         <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                          <label className="form-label" htmlFor="quickPincode">Confirm Pincode</label>
+                          <label className="form-label" htmlFor="quickPincode">{t('grievance.confirmPincode')}</label>
                           <input
                             id="quickPincode"
                             className="form-input"
@@ -993,7 +922,7 @@ export default function NewGrievance() {
 
                         {/* Part C: Final Location Preview with GPS coords */}
                         <div style={{ padding: '0.75rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.2)' }}>
-                          <p style={{ color: 'var(--primary)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Final Location Preview</p>
+                          <p style={{ color: 'var(--primary)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('grievance.finalPreview')}</p>
                           {finalLocationPreview ? (
                             <>
                               <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.5rem', fontWeight: 600 }}>{finalLocationPreview}</p>
@@ -1060,8 +989,7 @@ export default function NewGrievance() {
                             className="btn btn-sm btn-primary"
                             style={{ flex: '1 1 auto', minWidth: '120px' }}
                           >
-                            <Check size={14} style={{ marginRight: '0.25rem' }} /> Use This Location
-                          </button>
+                            <Check size={14} style={{ marginRight: '0.25rem' }} />{t('grievance.useThisLocation')}</button>
                           <button
                             onClick={handleEditLocation}
                             className="btn btn-sm btn-outline"
@@ -1125,7 +1053,7 @@ export default function NewGrievance() {
                       >
                         <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--on-surface)' }}>Edit Location Details</h4>
                         <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                          <label className="form-label" htmlFor="manualLandmark">Exact Landmark / Place</label>
+                          <label className="form-label" htmlFor="manualLandmark">{t('grievance.exactLandmark')}</label>
                           <input id="manualLandmark" className="form-input" type="text" value={locationFields.landmark} onChange={e => updateLocationFields({ landmark: e.target.value })} placeholder="Example: Bansal College, Main Gate, Near Canteen" />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
@@ -1247,7 +1175,7 @@ export default function NewGrievance() {
 
                   <div className="form-group">
                     <div>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>Live Geo-Tagged Evidence</h3>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>{t('grievance.liveEvidence')}</h3>
                       <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
                         Capture a fresh photo from the complaint location. CivicTrust will attach GPS coordinates and timestamp for verification.
                       </p>
@@ -1255,73 +1183,8 @@ export default function NewGrievance() {
                         Live geo-tagged capture is recommended for evidence verification.
                       </p>
                     </div>
-                    <LiveGeoTaggedCapture onEvidenceChange={setLiveEvidence} onStatusChange={setLiveCaptureStatus} />
+                    <LiveGeoTaggedCapture onEvidenceChange={setLiveEvidence} />
                   </div>
-
-                  <input
-                    id="fileInput"
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,application/pdf"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                  />
-
-                  {!liveCaptureHidesUpload && files.length === 0 && (
-                    <div
-                      className={`upload-zone ${isDragging ? 'dragging' : ''}`}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: isDragging ? 'var(--primary)' : 'var(--outline)', marginBottom: '0.5rem', display: 'block' }}>
-                        {isDragging ? 'download' : 'cloud_upload'}
-                      </span>
-                      <p style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
-                        {isDragging ? 'Drop files now' : 'Drag and drop files here or click to browse'}
-                      </p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>Supported formats: JPG, PNG, PDF (Max 5MB)</p>
-                    </div>
-                  )}
-
-                  {!liveCaptureHidesUpload && files.length > 0 && (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      style={{ alignSelf: 'flex-start' }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add_photo_alternate</span>
-                      Add More Evidence
-                    </button>
-                  )}
-
-                  {files.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
-                      <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Selected Files ({files.length})</p>
-                      {files.map((file, i) => {
-                        const previewUrl = filePreviewUrls[getFileKey(file, i)];
-                        return (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-container-high)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
-                            {previewUrl ? (
-                              <img src={previewUrl} alt={file.name} style={{ width: '3rem', height: '3rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.18)', flexShrink: 0 }} />
-                            ) : (
-                              <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: 'var(--primary)' }}>insert_drive_file</span>
-                            )}
-                            <span style={{ fontSize: '0.8125rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>({(file.size / 1024).toFixed(1)} KB)</span>
-                          </div>
-                          <button onClick={(e) => { e.stopPropagation(); removeFile(i); }} style={{ color: 'var(--error)', padding: '2px' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>close</span>
-                          </button>
-                        </div>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               </motion.div>
             )}

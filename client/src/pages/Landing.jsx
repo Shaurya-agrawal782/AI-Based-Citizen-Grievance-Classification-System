@@ -19,115 +19,7 @@ const cardGlassStyle = {
   borderRadius: '1.25rem',
 };
 
-const steps = [
-  {
-    icon: 'edit_document',
-    title: '1. Submit',
-    desc: 'Provide grievance details through a secure guided form, QR zone, voice, or text.',
-    filled: true,
-  },
-  {
-    icon: 'auto_awesome',
-    title: '2. AI Classification',
-    desc: 'CivicTrust AI classifies, prioritizes, and detects duplicate reports in seconds.',
-    gradient: true,
-  },
-  {
-    icon: 'account_tree',
-    title: '3. Routing',
-    desc: 'The issue is routed to the responsible departmental desk with clear SLA context.',
-  },
-  {
-    icon: 'check_circle',
-    title: '4. Resolution',
-    desc: 'Citizens track every status change until official closure and confirmation.',
-    border: true,
-    filled: true,
-  },
-];
 
-const categories = [
-  {
-    icon: 'construction',
-    label: 'Public Infrastructure',
-    desc: 'Potholes, broken roads, damaged footpaths',
-    dept: 'Public Works',
-    color: '#283593',
-    bg: '#e8eaf6',
-  },
-  {
-    icon: 'delete',
-    label: 'Sanitation & Waste',
-    desc: 'Garbage overflow, dirty streets, blocked drains',
-    dept: 'Sanitation',
-    color: '#2e7d32',
-    bg: '#e8f5e9',
-  },
-  {
-    icon: 'water_drop',
-    label: 'Water Supply',
-    desc: 'Leakage, no supply, pipeline issues',
-    dept: 'Water Authority',
-    color: '#1565c0',
-    bg: '#e3f2fd',
-  },
-  {
-    icon: 'bolt',
-    label: 'Electricity',
-    desc: 'Streetlights not working, outages, exposed wires',
-    dept: 'Electricity Board',
-    color: '#e65100',
-    bg: '#fff3e0',
-  },
-  {
-    icon: 'shield',
-    label: 'Public Safety',
-    desc: 'Open manholes, hazardous zones',
-    dept: 'Municipal Safety',
-    color: '#6a1b9a',
-    bg: '#f3e5f5',
-  },
-];
-
-const features = [
-  {
-    icon: 'smart_toy',
-    title: 'AI Classification',
-    desc: 'NLP-driven classification and auto-routing to the right department.',
-  },
-  {
-    icon: 'content_copy',
-    title: 'Duplicate Detection',
-    desc: 'Automatic duplicate detection to reduce repeated reports and effort.',
-  },
-  {
-    icon: 'priority_high',
-    title: 'Priority Handling',
-    desc: 'Smart urgency scoring based on civic impact and risk.',
-  },
-  {
-    icon: 'translate',
-    title: 'Language Support',
-    desc: 'Voice, text, and multilingual support for accessible complaint filing.',
-  },
-  {
-    icon: 'speed',
-    title: 'Real-Time Tracking',
-    desc: 'Live ticket tracking and visible status updates for citizens.',
-  },
-  {
-    icon: 'analytics',
-    title: 'Analytics Dashboard',
-    desc: 'Actionable trend insights for government and department teams.',
-  },
-];
-
-const insightMetrics = [
-  { icon: 'bolt', label: 'Avg. Classification Time', value: '1.2s' },
-  { icon: 'timer', label: 'Critical SLA', value: '4h' },
-  { icon: 'qr_code_scanner', label: 'QR Zones', value: 'Enabled' },
-  { icon: 'confirmation_number', label: 'Ticket Tracking', value: 'Active' },
-];
 
 // heroCtas defined inside component (uses t())
 
@@ -135,6 +27,116 @@ export default function Landing() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  const steps = [
+    {
+      icon: 'edit_document',
+      title: t('landing.step1Title'),
+      desc: t('landing.step1Desc'),
+      filled: true,
+    },
+    {
+      icon: 'auto_awesome',
+      title: t('landing.step2Title'),
+      desc: t('landing.step2Desc'),
+      gradient: true,
+    },
+    {
+      icon: 'account_tree',
+      title: t('landing.step3Title'),
+      desc: t('landing.step3Desc'),
+    },
+    {
+      icon: 'check_circle',
+      title: t('landing.step4Title'),
+      desc: t('landing.step4Desc'),
+      border: true,
+      filled: true,
+    },
+  ];
+  
+  const categories = [
+    {
+      icon: 'construction',
+      label: 'Public Infrastructure',
+      desc: 'Potholes, broken roads, damaged footpaths',
+      dept: 'Public Works',
+      color: '#283593',
+      bg: '#e8eaf6',
+    },
+    {
+      icon: 'delete',
+      label: 'Sanitation & Waste',
+      desc: 'Garbage overflow, dirty streets, blocked drains',
+      dept: 'Sanitation',
+      color: '#2e7d32',
+      bg: '#e8f5e9',
+    },
+    {
+      icon: 'water_drop',
+      label: 'Water Supply',
+      desc: 'Leakage, no supply, pipeline issues',
+      dept: 'Water Authority',
+      color: '#1565c0',
+      bg: '#e3f2fd',
+    },
+    {
+      icon: 'bolt',
+      label: 'Electricity',
+      desc: 'Streetlights not working, outages, exposed wires',
+      dept: 'Electricity Board',
+      color: '#e65100',
+      bg: '#fff3e0',
+    },
+    {
+      icon: 'shield',
+      label: 'Public Safety',
+      desc: 'Open manholes, hazardous zones',
+      dept: 'Municipal Safety',
+      color: '#6a1b9a',
+      bg: '#f3e5f5',
+    },
+  ];
+  
+  const features = [
+    {
+      icon: 'smart_toy',
+      title: 'AI Classification',
+      desc: 'NLP-driven classification and auto-routing to the right department.',
+    },
+    {
+      icon: 'content_copy',
+      title: 'Duplicate Detection',
+      desc: 'Automatic duplicate detection to reduce repeated reports and effort.',
+    },
+    {
+      icon: 'priority_high',
+      title: 'Priority Handling',
+      desc: 'Smart urgency scoring based on civic impact and risk.',
+    },
+    {
+      icon: 'translate',
+      title: 'Language Support',
+      desc: 'Voice, text, and multilingual support for accessible complaint filing.',
+    },
+    {
+      icon: 'speed',
+      title: 'Real-Time Tracking',
+      desc: 'Live ticket tracking and visible status updates for citizens.',
+    },
+    {
+      icon: 'analytics',
+      title: 'Analytics Dashboard',
+      desc: 'Actionable trend insights for government and department teams.',
+    },
+  ];
+  
+  const insightMetrics = [
+    { icon: 'bolt', label: t('landing.avgClassTime'), value: '1.2s' },
+    { icon: 'timer', label: t('landing.criticalSla'), value: '4h' },
+    { icon: 'qr_code_scanner', label: t('landing.qrZonesEnabled'), value: t('landing.enabled') },
+    { icon: 'confirmation_number', label: t('landing.ticketTrackingActive'), value: t('landing.active') },
+  ];
 
   const heroCtas = [
     { label: t('landing.fileComplaint'), to: '/new-grievance', icon: 'arrow_forward', primary: true },
@@ -354,8 +356,8 @@ export default function Landing() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', gap: '1rem' }}>
                     <div>
-                      <h3 style={{ fontSize: '0.875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Insight Panel</h3>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>Live portal readiness</p>
+                      <h3 style={{ fontSize: '0.875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('landing.insightPanel')}</h3>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>{t('landing.livePortalReadiness')}</p>
                     </div>
                     <span
                       className="material-symbols-outlined animate-glow"
@@ -416,13 +418,13 @@ export default function Landing() {
             <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
               <div style={{ textAlign: 'center', marginBottom: '4rem', maxWidth: '640px', marginInline: 'auto' }}>
                 <p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: '0.75rem' }}>
-                  Process Overview
+                  {t('landing.processOverview')}
                 </p>
                 <h2 style={{ fontSize: '2.25rem', fontWeight: 800, letterSpacing: '-0.025em', marginBottom: '1rem' }}>
-                  How CivicTrust AI Works
+                  {t('landing.howItWorks')}
                 </h2>
                 <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>
-                  A clear workflow helps each grievance reach the right team quickly, with transparent updates from submission to closure.
+                  {t('landing.howItWorksDesc')}
                 </p>
               </div>
 
@@ -482,13 +484,13 @@ export default function Landing() {
             <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
               <div style={{ textAlign: 'center', marginBottom: '4rem', maxWidth: '640px', marginInline: 'auto' }}>
                 <p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: '0.75rem' }}>
-                  Targeted Grievances
+                  {t('landing.targetedGrievances')}
                 </p>
                 <h2 style={{ fontSize: '2.25rem', fontWeight: 800, letterSpacing: '-0.025em', marginBottom: '1rem' }}>
-                  Categories We Handle
+                  {t('landing.categoriesWeHandle')}
                 </h2>
                 <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>
-                  CivicTrust AI focuses on core urban service issues and routes them to the appropriate department.
+                  {t('landing.categoriesDesc')}
                 </p>
               </div>
 
@@ -543,7 +545,7 @@ export default function Landing() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      Dept: {cat.dept}
+                      {t('landing.dept')} {cat.dept}
                     </div>
                   </motion.div>
                 ))}
@@ -555,10 +557,10 @@ export default function Landing() {
             <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
               <div style={{ textAlign: 'center', marginBottom: '4rem', maxWidth: '640px', marginInline: 'auto' }}>
                 <p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: '0.75rem' }}>
-                  Why Choose CivicTrust
+                  {t('landing.whyChoose')}
                 </p>
                 <h2 style={{ fontSize: '2.25rem', fontWeight: 800, letterSpacing: '-0.025em', marginBottom: '1rem' }}>
-                  AI-Powered Features
+                  {t('landing.aiFeatures')}
                 </h2>
               </div>
 
@@ -619,10 +621,10 @@ export default function Landing() {
               style={{ maxWidth: '640px', margin: '0 auto' }}
             >
               <h2 style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: '1rem' }}>
-                Ready to Report an Issue?
+                {t('landing.readyToReport')}
               </h2>
               <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', marginBottom: '2rem', lineHeight: 1.6 }}>
-                File a grievance now and CivicTrust AI will help route it to the right department with transparent ticket tracking.
+                {t('landing.readyToReportDesc')}
               </p>
               <motion.button
                 type="button"
@@ -650,10 +652,10 @@ export default function Landing() {
         >
           <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
             {[
-              { icon: 'visibility', label: 'Transparent Process' },
-              { icon: 'speed', label: 'Faster Resolution' },
-              { icon: 'smart_toy', label: 'AI-Driven Routing' },
-              { icon: 'people', label: 'Citizen-Centric Approach' },
+              { icon: 'visibility', label: t('landing.transparentProcess') },
+              { icon: 'speed', label: t('landing.fasterResolution') },
+              { icon: 'smart_toy', label: t('landing.aiDrivenRouting') },
+              { icon: 'people', label: t('landing.citizenCentric') },
             ].map((item) => (
               <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '1.125rem', color: 'var(--primary)' }}>{item.icon}</span>
@@ -662,7 +664,7 @@ export default function Landing() {
             ))}
           </div>
           <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-            (c) 2026 Civic Architect Portal. Secure Government Infrastructure. | BGI Hackathon
+            {t('landing.footerCopyright')}
           </p>
         </footer>
       </div>

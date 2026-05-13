@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { grievanceAPI } from '../services/api';
 import CaseHistoryTimeline from '../components/common/CaseHistoryTimeline';
+import { useLanguage } from '../context/LanguageContext';
 
 const statusLabels = {
   'submitted': 'Submitted',
@@ -109,6 +110,7 @@ function EvidenceImageGrid({ items, emptyText, tone = 'neutral' }) {
 }
 
 export default function TrackComplaint() {
+  const { t } = useLanguage();
   const [trackingId, setTrackingId] = useState('');
   const [grievance, setGrievance] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -171,7 +173,7 @@ export default function TrackComplaint() {
   return (
     <div className="container" style={{ padding: '2rem', maxWidth: '800px' }}>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>Track Your Complaint</h1>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>{t('ticket.title')}</h1>
         <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', marginBottom: '2rem' }}>
           Enter your grievance tracking ID to view the current status and resolution timeline.
         </p>

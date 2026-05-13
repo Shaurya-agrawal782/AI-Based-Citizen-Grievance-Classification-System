@@ -152,13 +152,13 @@ export default function TrackTicket() {
       <div className="container page-content" style={{ maxWidth: '900px' }}>
 
         <motion.div className="animate-page-hero" variants={heroReveal} {...pageRevealProps(shouldReduceMotion)} style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <div className="badge badge-ai" style={{ marginBottom: '1rem' }}>Transparent Ticket Status</div>
+          <div className="badge badge-ai" style={{ marginBottom: '1rem' }}>{t('ticket.transparentStatus')}</div>
           <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.75rem', color: 'var(--on-surface)' }}>{t('ticket.title')}</h1>
           <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)' }}>
             {t('ticket.subtitle')}
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center', marginTop: '1.5rem' }}>
-            <span style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center' }}>Demo IDs:</span>
+            <span style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center' }}>{t('ticket.demoIds')}</span>
             {DEMO_IDS.map(id => (
               <button
                 key={id}
@@ -197,15 +197,14 @@ export default function TrackTicket() {
               {result.priority === 'Critical' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 1.25rem', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
                   <AlertTriangle size={18} color="#ef4444" />
-                  <p style={{ fontSize: '0.9375rem', fontWeight: 600 }}>Ticket Status: <span style={{ color: '#ef4444' }}>Critical — {result.sla} SLA active</span></p>
+                  <p style={{ fontSize: '0.9375rem', fontWeight: 600 }}>{t('ticket.ticketStatus')}: <span style={{ color: '#ef4444' }}>Critical — {result.sla} {t('ticket.slaActive')}</span></p>
                 </div>
               )}
 
               {/* Timeline */}
               <div className="glass-card premium-card-hover" style={{ padding: '2.5rem', marginBottom: '2rem', borderRadius: 'var(--radius-2xl)', boxShadow: 'var(--shadow-sm)' }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--on-surface)' }}>
-                  <Clock size={24} color="var(--primary)" /> Resolution Timeline
-                </h3>
+                  <Clock size={24} color="var(--primary)" /> {t('ticket.resolutionTimeline')}</h3>
                 <div className="timeline">
                   {result.timeline.map((step, i) => (
                     <div key={i} className={`timeline-item ${step.done ? (i === result.timeline.filter(s => s.done).length - 1 ? 'active' : 'success') : ''}`}>

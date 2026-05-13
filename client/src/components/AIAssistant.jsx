@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Bot, ChevronRight, MessageCircle, Minus, Send, ShieldAlert, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 
 const FILE_GRIEVANCE_PATH = '/new-grievance';
 const DEMO_TICKET_ID = 'CT-TKT-2026-0001';
@@ -292,6 +293,7 @@ function detectIntent(input) {
 }
 
 export default function AIAssistant({ context = 'general', formContent = {} }) {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState(initialMessages);
@@ -401,8 +403,8 @@ export default function AIAssistant({ context = 'general', formContent = {} }) {
                     <Bot size={20} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>CivicTrust Assistant</h3>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', margin: '0.125rem 0 0' }}>File, track and understand grievances</p>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>{t('chatbot.title')}</h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', margin: '0.125rem 0 0' }}>{t('chatbot.subtitle')}</p>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.25rem' }}>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { grievanceAPI } from '../services/api';
 
 const categoryIcons = {
@@ -24,6 +25,7 @@ const statusLabels = {
 
 export default function CitizenDashboard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [stats, setStats] = useState(null);
   const [grievances, setGrievances] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,26 +77,26 @@ export default function CitizenDashboard() {
           style={{ marginBottom: '2rem', padding: '2rem' }}
         >
           <div className="badge badge-ai" style={{ marginBottom: '0.85rem' }}>
-            CivicTrust Command Center
+            {t('dashboard.commandCenter')}
           </div>
           <h1 style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.45rem' }}>
-            Welcome back, {user?.name?.split(' ')[0]}
+            {t('dashboard.welcomeBack')}, {user?.name?.split(' ')[0]}
           </h1>
           <p style={{ fontSize: '1.05rem', color: 'var(--on-surface-variant)', maxWidth: '680px' }}>
-            Monitor tickets, SLA status and recent civic grievance activity.
+            {t('dashboard.subtitle')}
           </p>
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
             <Link to="/grievance/new">
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="btn btn-primary civic-gradient-button">
                 <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>add</span>
-                File New Grievance
+                {t('dashboard.fileNew')}
               </motion.button>
             </Link>
             <Link to="/track">
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="btn btn-outline warm-outline-button">
                 <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>manage_search</span>
-                Track Complaint
+                {t('dashboard.trackComplaint')}
               </motion.button>
             </Link>
           </div>
@@ -102,10 +104,10 @@ export default function CitizenDashboard() {
 
         <div className="grid grid-4" style={{ marginBottom: '2rem' }}>
           {[
-            { label: 'Total Filed', value: stats?.total || 0, icon: 'description', variant: '' },
-            { label: 'In Progress', value: stats?.inProgress || 0, icon: 'pending_actions', variant: 'stat-primary' },
-            { label: 'Resolved', value: stats?.resolved || 0, icon: 'check_circle', variant: 'stat-success' },
-            { label: 'Escalated', value: stats?.escalated || 0, icon: 'warning', variant: 'stat-warning' },
+            { label: t('dashboard.totalFiled'), value: stats?.total || 0, icon: 'description', variant: '' },
+            { label: t('dashboard.inProgress'), value: stats?.inProgress || 0, icon: 'pending_actions', variant: 'stat-primary' },
+            { label: t('dashboard.resolved'), value: stats?.resolved || 0, icon: 'check_circle', variant: 'stat-success' },
+            { label: t('dashboard.escalated'), value: stats?.escalated || 0, icon: 'warning', variant: 'stat-warning' },
           ].map((stat, i) => (
             <motion.div
               key={stat.label}
@@ -125,15 +127,15 @@ export default function CitizenDashboard() {
 
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Your Recent Grievances</h2>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{t('dashboard.recentGrievances')}</h2>
           </div>
 
           {grievances.length === 0 ? (
             <div className="glass-card" style={{ textAlign: 'center', padding: '3rem' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--outline)', marginBottom: '1rem', display: 'block' }}>inbox</span>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.5rem' }}>No grievances filed yet</h3>
-              <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>Start by filing your first civic grievance</p>
-              <Link to="/grievance/new" className="btn btn-primary civic-gradient-button">File a Grievance</Link>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.5rem' }}>{t('dashboard.noGrievances')}</h3>
+              <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>{t('dashboard.startFiling')}</p>
+              <Link to="/grievance/new" className="btn btn-primary civic-gradient-button">{t('dashboard.fileNew')}</Link>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -159,8 +161,8 @@ export default function CitizenDashboard() {
                       </div>
                     </div>
                     <div className="grievance-actions">
-                      <span className={`badge badge-${g.status}`}>{statusLabels[g.status]}</span>
-                      <span className={`badge badge-${g.priority}`}>{g.priority}</span>
+                      <span className={`badge badge-${g.status}`}>{t('dashboard.statusLabels.' + (g.status === 'in-review' ? 'inReview' : g.status === 'in-progress' ? 'inProgress' : g.status)) || statusLabels[g.status]}</span>
+                      <span className={`badge badge-${g.priority}`}>{t('common.' + g.priority.toLowerCase()) || g.priority}</span>
                     </div>
                   </motion.div>
                 );

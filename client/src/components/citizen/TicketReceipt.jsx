@@ -44,6 +44,7 @@ export default function TicketReceipt({
   submittedAt = new Date().toISOString(),
   trackingUrl,
 }) {
+  const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const resolvedUrl = trackingUrl || `${window.location.origin}/track-ticket?ticket=${ticketId}`;
   const priorityColor = PRIORITY_COLOR[priority] || 'var(--primary)';
