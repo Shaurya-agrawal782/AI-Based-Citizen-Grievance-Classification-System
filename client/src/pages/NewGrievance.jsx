@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MapPin, Loader2, Sparkles, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Mic, Loader2, AlertCircle, ShieldAlert, Navigation, Trash2, Edit2, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { grievanceAPI, aiAPI } from '../services/api';
 import VoiceComplaintInput from '../components/citizen/VoiceComplaintInput';
 import GrievanceCopilot from '../components/citizen/GrievanceCopilot';
+import { qrZones } from '../data/qrZones';
+import { detectGPSLocation, reverseGeocode, formatAccuracy, getQRContext, setQRContext, clearQRContext } from '../utils/locationHelper';
 
 const categories = [
   { value: 'Public Infrastructure', icon: 'construction', color: '#283593', bg: '#e8eaf6' },
@@ -15,9 +17,56 @@ const categories = [
   { value: 'Public Safety', icon: 'shield', color: '#6a1b9a', bg: '#f3e5f5' },
 ];
 
+const getAccuracyStatus = (accuracy) => {
+  const meters = Number(accuracy);
+  if (!Number.isFinite(meters)) return { label: 'Not reported', tone: 'var(--on-surface-variant)' };
+  if (meters <= 50) return { label: 'Good', tone: '#2e7d32' };
+  if (meters <= 250) return { label: 'Moderate', tone: 'var(--warning)' };
+  return { label: 'Low', tone: 'var(--error)' };
+};
+
+const formatCoordinate = (value) => {
+  const coordinate = Number(value);
+  return Number.isFinite(coordinate) ? coordinate.toFixed(6) : 'Not available';
+};
+
+const buildLocationPreview = (fields) => {
+  const landmark = fields.landmark?.trim();
+  const address = fields.address?.trim();
+
+  if (landmark && address) return `${landmark}, ${address}`;
+  return landmark || address || '';
+};
+
+const buildLocationPayload = (fields, detected, sourceOverride) => {
+  const lat = detected?.lat ?? detected?.coordinates?.lat ?? null;
+  const lng = detected?.lng ?? detected?.coordinates?.lng ?? null;
+  const payload = {
+    lat,
+    lng,
+    accuracy: detected?.accuracy ?? null,
+    address: fields.address?.trim() || detected?.address || '',
+    landmark: fields.landmark?.trim() || '',
+    city: fields.city?.trim() || detected?.city || '',
+    state: fields.state?.trim() || detected?.state || '',
+    pincode: fields.pincode?.trim() || detected?.pincode || '',
+    source: sourceOverride || detected?.source || 'Manual',
+  };
+
+  if (fields.area?.trim() || detected?.area) payload.area = fields.area?.trim() || detected?.area;
+  if (fields.ward?.trim() || detected?.ward) payload.ward = fields.ward?.trim() || detected?.ward;
+  if (fields.zone?.trim() || detected?.zone) payload.zone = fields.zone?.trim() || detected?.zone;
+  if (lat !== null && lng !== null) payload.coordinates = { lat, lng };
+
+  return payload;
+};
+
 export default function NewGrievance() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const zoneIdParam = searchParams.get('zoneId');
+  
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
@@ -27,6 +76,28 @@ export default function NewGrievance() {
   const [duplicateLoading, setDuplicateLoading] = useState(false);
   const [files, setFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Location management
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationDetected, setLocationDetected] = useState(null);
+  const [qrContext, setQrContextState] = useState(null);
+  const [showLocationEdit, setShowLocationEdit] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [locationWarning, setLocationWarning] = useState(null);
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
+  
+  // Manual location fields
+  const [locationFields, setLocationFields] = useState({
+    landmark: '',
+    city: '',
+    area: '',
+    ward: '',
+    zone: '',
+    address: '',
+    state: '',
+    pincode: '',
+  });
+  const locationFieldsRef = useRef(locationFields);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -63,10 +134,34 @@ export default function NewGrievance() {
     location: '',
     dateOfIncident: '',
     privacyConsent: false,
+    locationSource: '', // GPS | QR | Manual
   });
 
   const [voiceLanguage, setVoiceLanguage] = useState('hi-IN');
-  const [isLocating, setIsLocating] = useState(false);
+
+  useEffect(() => {
+    locationFieldsRef.current = locationFields;
+  }, [locationFields]);
+
+  const updateLocationFields = (updates) => {
+    const next = { ...locationFieldsRef.current, ...updates };
+    locationFieldsRef.current = next;
+    setLocationFields(next);
+
+    const preview = buildLocationPreview(next);
+    if (preview) {
+      setForm(formPrev => ({
+        ...formPrev,
+        location: preview,
+        locationSource: formPrev.locationSource || locationDetected?.source || 'Manual',
+      }));
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'landmark')) {
+      setLocationConfirmed(false);
+      if (updates.landmark?.trim()) setLocationWarning(null);
+    }
+  };
 
   useEffect(() => {
     const storedDraft = localStorage.getItem('civictrust_draft_complaint');
@@ -79,42 +174,231 @@ export default function NewGrievance() {
     });
   }, []);
 
-  const handleDetectLocation = () => {
-    setIsLocating(true);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          setForm(prev => ({ ...prev, location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
+  // Initialize QR context if coming from QR route
+  useEffect(() => {
+    if (zoneIdParam) {
+      const zone = qrZones.find(z => z.zoneId === zoneIdParam);
+      if (zone) {
+        setQRContext(zone);
+        const qrCtx = getQRContext();
+        setQrContextState(qrCtx);
+        
+        // Prefill location from QR zone
+        if (qrCtx) {
+          setLocationDetected({
+            lat: qrCtx.lat,
+            lng: qrCtx.lng,
+            address: qrCtx.address,
+            source: 'QR',
+            city: qrCtx.address?.split(',')[0] || '',
+            ward: qrCtx.ward || '',
+            zone: qrCtx.zone || '',
+            timestamp: Date.now(),
+          });
+          
+          const nextFields = {
+            ...locationFieldsRef.current,
+            city: qrCtx.address?.split(',')[0] || '',
+            area: '',
+            ward: qrCtx.ward || '',
+            zone: qrCtx.zone || '',
+            address: qrCtx.address || '',
+            state: '',
+            pincode: '',
+          };
 
-          // Reverse geocoding would happen here in a real app
-          try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
-            const data = await res.json();
-            if (data.display_name) {
-              setForm(prev => ({ ...prev, location: data.display_name }));
-            }
-          } catch (e) {
-            console.error("Reverse geocoding failed", e);
-          }
-          setIsLocating(false);
-        },
-        (error) => {
-          console.error("Location error", error);
-          setIsLocating(false);
+          locationFieldsRef.current = nextFields;
+          setLocationFields(nextFields);
+          
+          setForm(prev => ({
+            ...prev,
+            location: buildLocationPreview(nextFields) || qrCtx.address,
+            locationSource: 'QR',
+          }));
+          setLocationConfirmed(false);
         }
-      );
+      }
+    } else {
+      // Not coming from QR, don't use stale QR context
+      const qr = getQRContext();
+      if (qr) {
+        // Show that we found old QR context but user is filing normal complaint
+        setQrContextState(qr);
+      }
     }
+  }, [zoneIdParam]);
+
+  const handleDetectLocation = async () => {
+    setIsLocating(true);
+    setLocationError(null);
+    setLocationWarning(null);
+    
+    try {
+      const gpsLocation = await detectGPSLocation();
+      
+      // Try reverse geocoding
+      const geocoded = await reverseGeocode(gpsLocation.lat, gpsLocation.lng);
+      const detectedAddress = geocoded?.address || `${gpsLocation.lat}, ${gpsLocation.lng}`;
+      
+      const locationData = {
+        lat: gpsLocation.lat,
+        lng: gpsLocation.lng,
+        accuracy: gpsLocation.accuracy,
+        source: 'GPS',
+        timestamp: Date.now(),
+        address: detectedAddress,
+        city: geocoded?.city || '',
+        area: geocoded?.area || '',
+        state: geocoded?.state || '',
+        pincode: geocoded?.pincode || '',
+      };
+      
+      setLocationDetected(locationData);
+      const nextFields = {
+        ...locationFieldsRef.current,
+        city: geocoded?.city || '',
+        area: geocoded?.area || '',
+        ward: '',
+        zone: '',
+        address: detectedAddress,
+        state: geocoded?.state || '',
+        pincode: geocoded?.pincode || '',
+      };
+
+      locationFieldsRef.current = nextFields;
+      setLocationFields(nextFields);
+      
+      setForm(prev => ({
+        ...prev,
+        location: buildLocationPreview(nextFields) || detectedAddress,
+        locationSource: 'GPS',
+      }));
+      setLocationConfirmed(false);
+      
+    } catch (error) {
+      console.error('Location detection error:', error);
+      
+      if (error.code === 1) {
+        setLocationError('Location permission denied. Please enter your address manually or check permissions.');
+      } else if (error.code === 3) {
+        setLocationError('Location detection timed out. Please try again or enter manually.');
+      } else {
+        setLocationError('Could not detect your location. Please enter your address manually.');
+      }
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const handleUseDetectedLocation = () => {
+    if (locationDetected) {
+      const fields = locationFieldsRef.current;
+      const hasLandmark = Boolean(fields.landmark?.trim());
+      const needsLandmark = Number(locationDetected.accuracy) > 100 && !hasLandmark;
+
+      if (needsLandmark) {
+        setLocationWarning('Please add an exact landmark for better routing.');
+        setShowLocationEdit(true);
+      } else {
+        setLocationWarning(null);
+        setShowLocationEdit(false);
+      }
+
+      setForm(prev => ({
+        ...prev,
+        location: buildLocationPreview(fields) || locationDetected.address,
+        locationSource: locationDetected.source,
+      }));
+      setLocationConfirmed(hasLandmark);
+    }
+  };
+
+  const handleEditLocation = () => {
+    setShowLocationEdit(true);
+  };
+
+  const handleSaveManualLocation = () => {
+    const fields = locationFieldsRef.current;
+    const savedSource = locationDetected?.source || 'Manual';
+    const manualAddress = [
+      fields.area,
+      fields.city,
+      fields.ward ? `${fields.ward}` : '',
+      fields.zone ? `${fields.zone} Zone` : '',
+    ]
+      .filter(Boolean)
+      .join(', ') || fields.address;
+    const nextFields = {
+      ...fields,
+      address: fields.address?.trim() || manualAddress,
+    };
+
+    locationFieldsRef.current = nextFields;
+    setLocationFields(nextFields);
+    
+    setForm(prev => ({
+      ...prev,
+      location: buildLocationPreview(nextFields) || manualAddress,
+      locationSource: savedSource,
+    }));
+    
+    setLocationDetected(prev => ({
+      ...prev,
+      source: savedSource,
+      address: nextFields.address,
+      landmark: nextFields.landmark,
+      city: nextFields.city,
+      area: nextFields.area,
+      ward: nextFields.ward,
+      zone: nextFields.zone,
+      state: nextFields.state,
+      pincode: nextFields.pincode,
+    }));
+    
+    setLocationWarning(null);
+    setLocationConfirmed(Boolean(nextFields.landmark?.trim()));
+    setShowLocationEdit(false);
+  };
+
+  const handleClearQRLocation = () => {
+    clearQRContext();
+    setQrContextState(null);
+  };
+
+  const handleRedetectLocation = async () => {
+    setLocationDetected(null);
+    setLocationError(null);
+    setLocationWarning(null);
+    setLocationConfirmed(false);
+    await handleDetectLocation();
   };
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      const fieldsForSubmit = {
+        ...locationFieldsRef.current,
+        address: locationFieldsRef.current.address?.trim() || form.location,
+      };
+      const finalLocation = buildLocationPayload(
+        fieldsForSubmit,
+        locationDetected,
+        form.locationSource || locationDetected?.source || 'Manual'
+      );
+
       const res = await grievanceAPI.create({
         ...form,
+        location: finalLocation,
         category: form.category || aiClassification?.suggestedDepartment,
-        privacyConsentAt: new Date().toISOString()
+        privacyConsentAt: new Date().toISOString(),
+        locationSource: finalLocation.source, // Include source (GPS | QR | Manual)
+        locationDetected: finalLocation,
+        locationConfirmed,
       });
+      
+      // Clear QR context after successful submission
+      clearQRContext();
+      
       setSuccess(res.data.grievance);
     } catch (err) {
       console.error('Submit error:', err);
@@ -175,6 +459,10 @@ export default function NewGrievance() {
     if (step === 2) return form.title && form.description;
     return true;
   };
+
+  const finalLocationPreview = buildLocationPreview(locationFields);
+  const accuracyStatus = getAccuracyStatus(locationDetected?.accuracy);
+  const showAccuracyWarning = locationDetected?.source === 'GPS' && Number(locationDetected.accuracy) > 50;
 
   // Success screen
   if (success) {
@@ -358,20 +646,348 @@ export default function NewGrievance() {
                       <input id="dateOfIncident" className="form-input" type="date" value={form.dateOfIncident} onChange={e => setForm({ ...form, dateOfIncident: e.target.value })} />
                     </div>
                     <div className="form-group">
-                      <label className="form-label" htmlFor="location">Location</label>
+                      <label className="form-label">Location</label>
                       <div style={{ position: 'relative' }}>
-                        <input id="location" className="form-input" type="text" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Address or landmark" />
+                        <input
+                          id="location"
+                          className="form-input"
+                          type="text"
+                          value={form.location}
+                          onChange={e => {
+                            const address = e.target.value;
+                            setForm({ ...form, location: address, locationSource: form.locationSource || 'Manual' });
+                            setLocationFields(prev => {
+                              const next = { ...prev, address };
+                              locationFieldsRef.current = next;
+                              return next;
+                            });
+                            setLocationConfirmed(false);
+                          }}
+                          placeholder="Address or landmark"
+                        />
                         <button
                           onClick={handleDetectLocation}
                           disabled={isLocating}
                           className="btn-icon"
                           style={{ position: 'absolute', top: '50%', right: '0.5rem', transform: 'translateY(-50%)', width: '2rem', height: '2rem' }}
+                          title="Detect your location with GPS"
                         >
-                          {isLocating ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
+                          {isLocating ? <Loader2 size={16} className="animate-spin" /> : <Navigation size={16} />}
                         </button>
                       </div>
                     </div>
                   </div>
+
+                  {!locationDetected && (
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="exactLandmark">Exact Landmark / Place</label>
+                      <input
+                        id="exactLandmark"
+                        className="form-input"
+                        type="text"
+                        value={locationFields.landmark}
+                        onChange={e => updateLocationFields({ landmark: e.target.value })}
+                        placeholder="Example: Bansal College, Main Gate, Near Canteen"
+                      />
+                    </div>
+                  )}
+
+                  {/* Location Detection Card */}
+                  <AnimatePresence>
+                    {locationDetected && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        style={{
+                          padding: '1rem',
+                          background: 'linear-gradient(135deg, rgba(14,165,164,0.08), rgba(30,58,138,0.08))',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid rgba(14,165,164,0.2)',
+                          marginBottom: '1rem',
+                        }}
+                      >
+                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase', display: 'none' }}>
+                          {locationDetected.source === 'QR' ? '📍 Location from QR Zone' : '🛰️ Detected Location'}
+                        </h4>
+                        
+                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase' }}>
+                          {locationDetected.source === 'QR' ? 'Location from QR Zone' : 'Detected Location'}
+                        </h4>
+
+                        <div style={{ marginBottom: '0.75rem' }}>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem' }}>GPS Coordinates</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem' }}>
+                            <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
+                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>Latitude</p>
+                              <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(locationDetected.lat)}</p>
+                            </div>
+                            <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
+                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>Longitude</p>
+                              <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(locationDetected.lng)}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ marginBottom: '0.75rem' }}>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Accuracy</p>
+                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>
+                            {locationDetected.accuracy ? `${locationDetected.accuracy}m` : 'Not reported'}
+                            <span style={{ color: accuracyStatus.tone, fontWeight: 700, marginLeft: '0.5rem' }}>{accuracyStatus.label}</span>
+                          </p>
+                        </div>
+
+                        {showAccuracyWarning && (
+                          <div style={{
+                            padding: '0.75rem',
+                            background: 'rgba(239,153,0,0.1)',
+                            border: '1px solid rgba(239,153,0,0.2)',
+                            borderRadius: 'var(--radius-sm)',
+                            marginBottom: '0.75rem',
+                            display: 'flex',
+                            gap: '0.5rem',
+                            alignItems: 'flex-start',
+                          }}>
+                            <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>GPS location is approximate. Please add exact landmark before submitting.</span>
+                          </div>
+                        )}
+
+                        <div style={{ marginBottom: '0.75rem' }}>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Detected Address</p>
+                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5 }}>{locationFields.address || locationDetected.address || 'Address not available'}</p>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                          <label className="form-label" htmlFor="detectedLandmark">Exact Landmark / Place</label>
+                          <input
+                            id="detectedLandmark"
+                            className="form-input"
+                            type="text"
+                            value={locationFields.landmark}
+                            onChange={e => updateLocationFields({ landmark: e.target.value })}
+                            placeholder="Example: Bansal College, Main Gate, Near Canteen"
+                          />
+                        </div>
+
+                        {locationWarning && (
+                          <div style={{
+                            padding: '0.75rem',
+                            background: 'rgba(239,153,0,0.1)',
+                            border: '1px solid rgba(239,153,0,0.2)',
+                            borderRadius: 'var(--radius-sm)',
+                            marginBottom: '0.75rem',
+                            display: 'flex',
+                            gap: '0.5rem',
+                            alignItems: 'flex-start',
+                          }}>
+                            <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>{locationWarning}</span>
+                          </div>
+                        )}
+
+                        <div style={{ padding: '0.75rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Final Location Preview</p>
+                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5 }}>{finalLocationPreview || 'Add address or landmark to preview final location.'}</p>
+                        </div>
+
+                        <div style={{ display: 'none' }}>
+                        {locationDetected.accuracy && (
+                          <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>
+                            {formatAccuracy(locationDetected.accuracy)}
+                          </p>
+                        )}
+                        
+                        {locationDetected.accuracy && locationDetected.accuracy > 1000 && (
+                          <div style={{
+                            padding: '0.75rem',
+                            background: 'rgba(239,153,0,0.1)',
+                            border: '1px solid rgba(239,153,0,0.2)',
+                            borderRadius: 'var(--radius-sm)',
+                            marginBottom: '0.75rem',
+                            display: 'flex',
+                            gap: '0.5rem',
+                            alignItems: 'flex-start',
+                          }}>
+                            <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.75rem', color: '#ef9900' }}>Location accuracy is low. Please confirm or edit before submitting.</span>
+                          </div>
+                        )}
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.75rem' }}>
+                          <div>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>Latitude</p>
+                            <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{locationDetected.lat}</p>
+                          </div>
+                          <div>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>Longitude</p>
+                            <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{locationDetected.lng}</p>
+                          </div>
+                        </div>
+                        
+                        {locationDetected.address && (
+                          <div style={{ marginBottom: '0.75rem' }}>
+                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Address</p>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>{locationDetected.address}</p>
+                          </div>
+                        )}
+                        
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                          <button
+                            onClick={handleUseDetectedLocation}
+                            className="btn btn-sm btn-primary"
+                            style={{ flex: '1 1 auto', minWidth: '120px' }}
+                          >
+                            <Check size={14} style={{ marginRight: '0.25rem' }} /> Use This Location
+                          </button>
+                          <button
+                            onClick={handleEditLocation}
+                            className="btn btn-sm btn-outline"
+                            style={{ flex: '1 1 auto', minWidth: '100px' }}
+                          >
+                            <Edit2 size={14} style={{ marginRight: '0.25rem' }} /> Edit
+                          </button>
+                          {locationDetected.source === 'GPS' && (
+                            <button
+                              onClick={handleRedetectLocation}
+                              className="btn btn-sm btn-outline"
+                              style={{ flex: '1 1 auto', minWidth: '100px' }}
+                            >
+                              <Navigation size={14} style={{ marginRight: '0.25rem' }} /> Re-detect
+                            </button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Location Error */}
+                  <AnimatePresence>
+                    {locationError && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        style={{
+                          padding: '0.75rem',
+                          background: 'var(--error-container)',
+                          color: 'var(--on-error-container)',
+                          borderRadius: 'var(--radius-md)',
+                          marginBottom: '1rem',
+                          display: 'flex',
+                          gap: '0.5rem',
+                          alignItems: 'flex-start',
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '0.125rem' }} />
+                        <span>{locationError}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Manual Location Edit */}
+                  <AnimatePresence>
+                    {showLocationEdit && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        style={{
+                          padding: '1rem',
+                          background: 'var(--surface-container-low)',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--surface-container-high)',
+                          marginBottom: '1rem',
+                        }}
+                      >
+                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--on-surface)' }}>Edit Location Details</h4>
+                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                          <label className="form-label" htmlFor="manualLandmark">Exact Landmark / Place</label>
+                          <input id="manualLandmark" className="form-input" type="text" value={locationFields.landmark} onChange={e => updateLocationFields({ landmark: e.target.value })} placeholder="Example: Bansal College, Main Gate, Near Canteen" />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="city">City / Town</label>
+                            <input id="city" className="form-input" type="text" value={locationFields.city} onChange={e => updateLocationFields({ city: e.target.value })} placeholder="e.g. Bhopal" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="area">Area</label>
+                            <input id="area" className="form-input" type="text" value={locationFields.area} onChange={e => updateLocationFields({ area: e.target.value })} placeholder="e.g. Arera Hills" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="ward">Ward</label>
+                            <input id="ward" className="form-input" type="text" value={locationFields.ward} onChange={e => updateLocationFields({ ward: e.target.value })} placeholder="e.g. Ward 1 North" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="zone">Zone</label>
+                            <input id="zone" className="form-input" type="text" value={locationFields.zone} onChange={e => updateLocationFields({ zone: e.target.value })} placeholder="e.g. Central" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="state">State</label>
+                            <input id="state" className="form-input" type="text" value={locationFields.state} onChange={e => updateLocationFields({ state: e.target.value })} placeholder="e.g. Madhya Pradesh" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="pincode">Pincode</label>
+                            <input id="pincode" className="form-input" type="text" value={locationFields.pincode} onChange={e => updateLocationFields({ pincode: e.target.value })} placeholder="e.g. 462001" />
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label" htmlFor="address">Full Address</label>
+                          <input id="address" className="form-input" type="text" value={locationFields.address} onChange={e => updateLocationFields({ address: e.target.value })} placeholder="Complete address" />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            onClick={handleSaveManualLocation}
+                            className="btn btn-sm btn-primary"
+                            style={{ flex: 1 }}
+                          >
+                            <Check size={14} style={{ marginRight: '0.25rem' }} /> Save Changes
+                          </button>
+                          <button
+                            onClick={() => setShowLocationEdit(false)}
+                            className="btn btn-sm btn-outline"
+                            style={{ flex: 1 }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* QR Context Banner */}
+                  <AnimatePresence>
+                    {qrContext && !zoneIdParam && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        style={{
+                          padding: '0.75rem',
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          border: '1px solid rgba(139, 92, 246, 0.2)',
+                          borderRadius: 'var(--radius-md)',
+                          marginBottom: '1rem',
+                          display: 'flex',
+                          gap: '0.5rem',
+                          alignItems: 'center',
+                          fontSize: '0.8125rem',
+                        }}
+                      >
+                        <span style={{ flex: 1 }}>📍 Old QR Zone location found. Not using it for this complaint. <strong>Zone:</strong> {qrContext.zoneName}</span>
+                        <button
+                          onClick={handleClearQRLocation}
+                          className="btn btn-sm btn-ghost"
+                          style={{ color: 'var(--primary)', padding: '0.25rem 0.5rem' }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   <div className="form-group">
                     <label className="form-label">Category (Optional - AI will suggest)</label>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>

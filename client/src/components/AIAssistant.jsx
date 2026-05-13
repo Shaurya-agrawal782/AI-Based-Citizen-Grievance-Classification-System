@@ -10,7 +10,7 @@ const initialMessages = [
   {
     id: 'welcome',
     role: 'assistant',
-    text: 'Hi, I am the CivicTrust Assistant. I can help you file a grievance, track a demo ticket, understand priority/SLA, use QR Zones, or open CivicDraft AI for formal complaint writing.',
+    text: '👋 Hi, I\'m CivicTrust Assistant. I can only help with civic grievances, tickets, QR reporting, SLA info, and complaint writing. What civic issue can I help you with?',
     actions: [
       { label: 'File Complaint', to: FILE_GRIEVANCE_PATH },
       { label: 'Track Demo Ticket', to: `/track-ticket?ticket=${DEMO_TICKET_ID}` },
@@ -80,6 +80,89 @@ function includesAny(text, keywords) {
   return keywords.some((keyword) => text.includes(keyword));
 }
 
+// OUT-OF-SCOPE DETECTION - Explicit blocklist for non-civic queries
+const OUT_OF_SCOPE_PATTERNS = {
+  homework: ['solve', 'answer', 'question', 'math', '2+2', 'equation', 'homework', 'assignment', 'chemistry', 'physics'],
+  entertainment: ['joke', 'poem', 'movie', 'song', 'music', 'celebrity', 'virat kohli', 'actor', 'singer', 'sports', 'cricket', 'football'],
+  tech_general: ['java', 'python', 'javascript', 'coding', 'programming', 'algorithm', 'database', 'html', 'css', 'react', 'node', 'code'],
+  personal_advice: ['love', 'relationship', 'dating', 'marriage', 'advice', 'career', 'job search', 'resume'],
+  general_knowledge: ['weather', 'news', 'capital of', 'history of', 'tell me about', 'wikipedia', 'google'],
+  political: ['politics', 'election', 'government policy', 'minister', 'political party'],
+};
+
+// CIVIC INTENT KEYWORDS
+const CIVIC_KEYWORDS = {
+  file_complaint: ['file complaint', 'file a complaint', 'new complaint', 'submit complaint', 'grievance', 'report issue', 'report a problem', 'lodge complaint'],
+  track_ticket: ['track', 'ticket', 'complaint id', 'ct-tkt', 'ct-2026', 'status', 'tracking'],
+  sla_help: ['sla', 'priority', 'urgent', 'critical', 'how long', 'timeline', 'response time'],
+  qr_help: ['qr', 'scan', 'zone', 'ward', 'qr code', 'location based'],
+  civicdraft_help: ['write application', 'formal complaint', 'application', 'draft', 'copilot', 'civicdraft', 'improve complaint'],
+  emergency_help: ['emergency', 'fire', 'shock', 'current', 'accident', 'danger', 'injury', 'collapse', 'open manhole'],
+  platform_help: ['how do i', 'how to use', 'how does', 'what is', 'guide', 'help', 'tutorial', 'explain'],
+};
+
+// DETECT IF MESSAGE IS OUT OF SCOPE (returns true if out-of-scope)
+function isOutOfScope(text) {
+  const normalizedText = normalize(text);
+  
+  // Check all out-of-scope patterns
+  for (const [category, keywords] of Object.entries(OUT_OF_SCOPE_PATTERNS)) {
+    if (includesAny(normalizedText, keywords)) {
+      return { isOutOfScope: true, category };
+    }
+  }
+  
+  return { isOutOfScope: false, category: null };
+}
+
+// DETECT CIVIC INTENT - returns true if message is civic-related
+function hasCivicIntent(text) {
+  const normalizedText = normalize(text);
+  
+  // Check for any civic keywords
+  for (const [intent, keywords] of Object.entries(CIVIC_KEYWORDS)) {
+    if (includesAny(normalizedText, keywords)) {
+      return true;
+    }
+  }
+  
+  // Check for complaint preview (looks like actual complaint text)
+  const preview = getComplaintPreview(text);
+  if (preview) return true;
+  
+  return false;
+}
+
+// CIVIC INTENT DETECTION - comprehensive check
+function detectCivicIntent(input) {
+  const text = normalize(input);
+  
+  // First check: is this explicitly out-of-scope?
+  const scopeCheck = isOutOfScope(text);
+  if (scopeCheck.isOutOfScope) {
+    return {
+      allowed: false,
+      intent: 'out_of_scope',
+      reason: `I can't help with ${scopeCheck.category} questions.`,
+    };
+  }
+  
+  // Second check: does it have civic intent?
+  if (!hasCivicIntent(input)) {
+    return {
+      allowed: false,
+      intent: 'out_of_scope',
+      reason: 'This doesn\'t seem related to civic grievances.',
+    };
+  }
+  
+  // If not blocked and has civic intent, it's allowed
+  return {
+    allowed: true,
+    intent: 'civic_related',
+  };
+}
+
 function extractTicketId(text) {
   return text.match(/CT-TKT-\d{4}-\d{4}|CT-\d{4}-\d{4}/i)?.[0]?.toUpperCase() || '';
 }
@@ -121,6 +204,20 @@ function createComplaintPreviewReply(input) {
 
 function detectIntent(input) {
   const text = normalize(input);
+  
+  // FIRST: Check if out-of-scope using civic intent detection
+  const intentCheck = detectCivicIntent(input);
+  if (!intentCheck.allowed) {
+    return {
+      text: 'I\'m CivicTrust Assistant, so I can only help with grievance filing, ticket tracking, QR reporting, SLA, priority, complaint writing, and platform guidance. Please ask me about a civic issue or your ticket.',
+      actions: [
+        { label: 'File Complaint', to: FILE_GRIEVANCE_PATH },
+        { label: 'Track Demo Ticket', to: `/track-ticket?ticket=${DEMO_TICKET_ID}` },
+      ],
+    };
+  }
+  
+  // SECOND: Route to specific intent handlers
   const ticketId = extractTicketId(input);
 
   if (ticketId || ['track', 'ticket', 'complaint id'].some((term) => text.includes(term))) {
@@ -137,7 +234,7 @@ function detectIntent(input) {
     };
   }
 
-  if (['emergency', 'fire', 'shock', 'current', 'accident', 'danger', 'injury', 'collapse'].some((term) => text.includes(term))) {
+  if (['emergency', 'fire', 'shock', 'current', 'accident', 'danger', 'injury', 'collapse', 'open manhole'].some((term) => text.includes(term))) {
     return {
       text: 'This may be safety-critical. Please file immediately, and if there is immediate danger to life, contact local emergency services also.',
       actions: [

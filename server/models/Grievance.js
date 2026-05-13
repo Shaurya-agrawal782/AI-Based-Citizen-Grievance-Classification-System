@@ -43,11 +43,32 @@ const grievanceSchema = new mongoose.Schema({
     default: 'submitted'
   },
   location: {
+    landmark: String,
     address: String,
+    city: String,
+    state: String,
+    pincode: String,
+    area: String,
+    ward: String,
+    zone: String,
+    lat: Number,
+    lng: Number,
     coordinates: {
       lat: Number,
       lng: Number
-    }
+    },
+    accuracy: Number,
+    source: {
+      type: String,
+      enum: ['GPS', 'QR', 'Manual', 'IP'],
+      default: 'Manual'
+    },
+    detectedAt: Date
+  },
+  locationSource: {
+    type: String,
+    enum: ['GPS', 'QR', 'Manual', 'IP'],
+    default: 'Manual'
   },
   dateOfIncident: {
     type: Date

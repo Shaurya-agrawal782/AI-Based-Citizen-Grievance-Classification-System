@@ -6,6 +6,21 @@ const { createAuditEntry, createCaseHistoryEntry, appendAuditLog, appendCaseHist
 
 const router = express.Router();
 
+const cleanString = (value) => (typeof value === 'string' ? value.trim() : value);
+
+const toNumberOrUndefined = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+};
+
+const firstNumber = (...values) => {
+  for (const value of values) {
+    const number = toNumberOrUndefined(value);
+    if (number !== undefined) return number;
+  }
+  return undefined;
+};
+
 // Get dashboard statistics
 router.get('/stats', auth, async (req, res) => {
   try {
@@ -95,7 +110,19 @@ router.get('/stats', auth, async (req, res) => {
 // Create new grievance
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, description, category, location, dateOfIncident, citizenPhone, coordinates, privacyConsent, privacyConsentAt } = req.body;
+    const { 
+      title, 
+      description, 
+      category, 
+      location, 
+      dateOfIncident, 
+      citizenPhone, 
+      coordinates, 
+      privacyConsent, 
+      privacyConsentAt,
+      locationSource, // GPS | QR | Manual
+      locationDetected // { lat, lng, accuracy, address, landmark, city, state, pincode, source }
+    } = req.body;
 
     // Advanced AI Analysis (Gemini)
     const aiResult = await analyzeGrievance(title, description);
@@ -114,16 +141,71 @@ router.post('/', auth, async (req, res) => {
       k => categoryDeptMap[k] === aiResult.suggestedDepartment
     ) || 'Public Infrastructure';
 
+    // Parse location data (could be string or object). Keep legacy coordinates while
+    // also storing top-level lat/lng for newer clients.
+    let locationObject = {};
+    if (typeof location === 'string') {
+      locationObject.address = cleanString(location);
+    } else if (location && typeof location === 'object') {
+      locationObject = { ...location };
+    }
+
+    const detectedLocation = locationDetected && typeof locationDetected === 'object' ? locationDetected : null;
+    if (detectedLocation) {
+      locationObject.landmark = cleanString(detectedLocation.landmark) || locationObject.landmark;
+      locationObject.address = cleanString(detectedLocation.address) || locationObject.address;
+      locationObject.city = cleanString(detectedLocation.city) || locationObject.city;
+      locationObject.state = cleanString(detectedLocation.state) || locationObject.state;
+      locationObject.pincode = cleanString(detectedLocation.pincode) || locationObject.pincode;
+      locationObject.area = cleanString(detectedLocation.area) || locationObject.area;
+      locationObject.ward = cleanString(detectedLocation.ward) || locationObject.ward;
+      locationObject.zone = cleanString(detectedLocation.zone) || locationObject.zone;
+      locationObject.accuracy = toNumberOrUndefined(detectedLocation.accuracy) ?? locationObject.accuracy;
+      locationObject.source = detectedLocation.source || locationSource || locationObject.source;
+      locationObject.detectedAt = new Date();
+    } else if (coordinates) {
+      locationObject.coordinates = coordinates;
+    } else if (typeof location === 'string' && location.includes(',')) {
+      const [lat, lng] = location.split(',').map(s => parseFloat(s.trim()));
+      if (!isNaN(lat) && !isNaN(lng)) {
+        locationObject.coordinates = { lat, lng };
+      }
+    }
+
+    const lat = firstNumber(
+      locationObject.lat,
+      detectedLocation?.lat,
+      locationObject.coordinates?.lat,
+      detectedLocation?.coordinates?.lat
+    );
+    const lng = firstNumber(
+      locationObject.lng,
+      detectedLocation?.lng,
+      locationObject.coordinates?.lng,
+      detectedLocation?.coordinates?.lng
+    );
+
+    if (lat !== undefined && lng !== undefined) {
+      locationObject.lat = lat;
+      locationObject.lng = lng;
+      locationObject.coordinates = { lat, lng };
+    }
+
+    const accuracy = toNumberOrUndefined(locationObject.accuracy);
+    if (accuracy !== undefined) {
+      locationObject.accuracy = accuracy;
+    }
+
+    locationObject.source = locationObject.source || locationSource || 'Manual';
+
     const grievance = new Grievance({
       title,
       description,
       category: finalCategory,
       department: finalDepartment,
       priority: aiResult.priority || 'medium',
-      location: {
-        address: location || '',
-        coordinates: coordinates || { lat: 0, lng: 0 }
-      },
+      location: locationObject,
+      locationSource: locationObject.source || locationSource || 'Manual',
       dateOfIncident: dateOfIncident || new Date(),
       citizen: req.userId,
       citizenName: req.user.name,
@@ -139,7 +221,7 @@ router.post('/', auth, async (req, res) => {
     appendAuditLog(grievance, createAuditEntry({
       action: "GRIEVANCE_CREATED",
       performedBy: citizenActor,
-      newValue: { status: 'submitted', category: finalCategory, priority: aiResult.priority || 'medium', department: finalDepartment },
+      newValue: { status: 'submitted', category: finalCategory, priority: aiResult.priority || 'medium', department: finalDepartment, locationSource: locationObject.source || 'Manual' },
       reason: "Citizen submitted grievance via CivicTrust portal"
     }));
 

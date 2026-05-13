@@ -15,6 +15,17 @@ const statusLabels = {
   'resolved': 'Resolved', 'escalated': 'Escalated', 'reopened': 'Reopened', 'closed': 'Closed',
 };
 
+const getLocationCoordinates = (location) => {
+  const lat = location?.lat ?? location?.coordinates?.lat;
+  const lng = location?.lng ?? location?.coordinates?.lng;
+  return {
+    lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
+    lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
+  };
+};
+
+const formatLocationCoordinate = (value) => Number(value).toFixed(6);
+
 export default function GrievanceDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -139,6 +150,13 @@ export default function GrievanceDetail() {
     );
   }
 
+  const locationCoordinates = getLocationCoordinates(grievance.location);
+  const hasLocationDetails = Boolean(
+    grievance.location?.landmark ||
+    grievance.location?.address ||
+    (locationCoordinates.lat !== null && locationCoordinates.lng !== null)
+  );
+
   return (
     <div className="admin-layout">
       {/* Sidebar */}
@@ -235,12 +253,36 @@ export default function GrievanceDetail() {
                   </div>
                   <div>
                     <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>Location Details</p>
+                    {hasLocationDetails ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        {grievance.location?.landmark && (
+                          <p style={{ fontWeight: 700 }}>{grievance.location.landmark}</p>
+                        )}
+                        {grievance.location?.address && (
+                          <p style={{ fontWeight: grievance.location?.landmark ? 500 : 600 }}>{grievance.location.address}</p>
+                        )}
+                        {locationCoordinates.lat !== null && locationCoordinates.lng !== null && (
+                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+                            Lat: {formatLocationCoordinate(locationCoordinates.lat)}, Lng: {formatLocationCoordinate(locationCoordinates.lng)}
+                          </p>
+                        )}
+                        {grievance.location?.accuracy !== undefined && grievance.location?.accuracy !== null && (
+                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+                            Accuracy: {Math.round(Number(grievance.location.accuracy))}m
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p style={{ fontWeight: 600 }}>Not specified</p>
+                    )}
+                    <div style={{ display: 'none' }}>
                     <p style={{ fontWeight: 600 }}>{grievance.location?.address || 'Not specified'}</p>
                     {grievance.location?.coordinates?.lat ? (
                       <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
                         {grievance.location.coordinates.lat.toFixed(4)}° N, {grievance.location.coordinates.lng.toFixed(4)}° W
                       </p>
                     ) : null}
+                    </div>
                   </div>
                 </div>
               </div>

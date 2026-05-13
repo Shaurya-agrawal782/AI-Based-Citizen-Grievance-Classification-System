@@ -30,8 +30,8 @@ export default function AdminMap() {
       const data = res.data.grievances.map(g => ({
         ...g,
         // If no coordinates, generate some around a city center for demo purposes
-        lat: g.location?.coordinates?.lat || (23.2599 + (Math.random() - 0.5) * 0.1),
-        lng: g.location?.coordinates?.lng || (77.4126 + (Math.random() - 0.5) * 0.1)
+        lat: g.location?.lat ?? g.location?.coordinates?.lat ?? (23.2599 + (Math.random() - 0.5) * 0.1),
+        lng: g.location?.lng ?? g.location?.coordinates?.lng ?? (77.4126 + (Math.random() - 0.5) * 0.1)
       }));
       setGrievances(data);
       
