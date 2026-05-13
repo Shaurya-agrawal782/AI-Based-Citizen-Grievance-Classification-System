@@ -28,11 +28,95 @@ const solutionFlow = [
   { id: 'close', label: 'Closed', status: 'closed', icon: 'verified' },
 ];
 
+const API_ORIGIN = (import.meta.env.VITE_API_BASE || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+const resolveEvidenceImageUrl = (item) => {
+  const rawUrl = item?.url || item?.secureUrl || item?.path || '';
+  if (!rawUrl) return '';
+
+  const normalizedUrl = rawUrl.replace(/\\/g, '/');
+  if (/^https?:\/\//i.test(normalizedUrl)) return normalizedUrl;
+  if (normalizedUrl.startsWith('/')) return `${API_ORIGIN}${normalizedUrl}`;
+  return `${API_ORIGIN}/${normalizedUrl}`;
+};
+
+const isImageEvidence = (item) => {
+  const mimetype = item?.mimetype || item?.type || '';
+  const url = item?.url || item?.path || item?.originalName || item?.filename || '';
+  return mimetype.startsWith('image/') || /\.(avif|gif|jpe?g|png|webp)$/i.test(url);
+};
+
+const getEvidenceName = (item, fallback) => item?.originalName || item?.filename || fallback;
+
+function EvidenceImageGrid({ items, emptyText, tone = 'neutral' }) {
+  const images = (items || []).filter(item => isImageEvidence(item) && resolveEvidenceImageUrl(item));
+
+  if (images.length === 0) {
+    return (
+      <div style={{
+        minHeight: '7.5rem',
+        border: '1px dashed var(--outline-variant)',
+        borderRadius: 'var(--radius-md)',
+        background: 'var(--surface-container-lowest)',
+        color: 'var(--on-surface-variant)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+        textAlign: 'center'
+      }}>
+        <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{emptyText}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: '0.75rem' }}>
+      {images.map((item, index) => (
+        <a
+          key={`${resolveEvidenceImageUrl(item)}-${index}`}
+          href={resolveEvidenceImageUrl(item)}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: 'block',
+            overflow: 'hidden',
+            borderRadius: 'var(--radius-md)',
+            border: `1px solid ${tone === 'after' ? 'rgba(14,165,164,0.22)' : 'var(--outline-variant)'}`,
+            background: 'var(--surface-container-lowest)'
+          }}
+        >
+          <img
+            src={resolveEvidenceImageUrl(item)}
+            alt={getEvidenceName(item, tone === 'after' ? 'Resolution proof' : 'Citizen evidence')}
+            style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover' }}
+          />
+          <p style={{
+            padding: '0.45rem 0.5rem',
+            fontSize: '0.6875rem',
+            fontWeight: 700,
+            color: 'var(--on-surface-variant)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}>
+            {getEvidenceName(item, tone === 'after' ? 'Resolution proof' : 'Citizen evidence')}
+          </p>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export default function TrackComplaint() {
   const [trackingId, setTrackingId] = useState('');
   const [grievance, setGrievance] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [feedbackForm, setFeedbackForm] = useState({ rating: 5, satisfied: 'yes', comment: '' });
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
+  const [feedbackNotice, setFeedbackNotice] = useState('');
 
   const handleTrack = async (e) => {
     e.preventDefault();
@@ -40,6 +124,8 @@ export default function TrackComplaint() {
     setLoading(true);
     setError('');
     setGrievance(null);
+    setFeedbackError('');
+    setFeedbackNotice('');
     try {
       const res = await grievanceAPI.track(trackingId.trim().toUpperCase());
       setGrievance(res.data.grievance);
@@ -47,6 +133,34 @@ export default function TrackComplaint() {
       setError(err.response?.data?.error || 'Grievance not found. Please check the tracking ID.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFeedbackSubmit = async (e) => {
+    e.preventDefault();
+    if (!grievance?._id) return;
+
+    const satisfied = feedbackForm.satisfied === 'yes';
+    setFeedbackLoading(true);
+    setFeedbackError('');
+    setFeedbackNotice('');
+
+    try {
+      const res = await grievanceAPI.submitFeedback(grievance._id, {
+        rating: Number(feedbackForm.rating),
+        satisfied,
+        comment: feedbackForm.comment
+      });
+
+      setGrievance(res.data.grievance);
+      setFeedbackNotice(satisfied
+        ? 'Thank you for confirming the resolution. Your complaint has been closed.'
+        : 'Your complaint has been reopened for review.'
+      );
+    } catch (err) {
+      setFeedbackError(err.response?.data?.error || 'Feedback submission failed.');
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -179,6 +293,174 @@ export default function TrackComplaint() {
                 )}
               </div>
             </div>
+
+            {/* Before / After Evidence */}
+            <div className="card" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.25rem' }}>Before / After</h3>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+                    Review submitted evidence and the officer resolution proof.
+                  </p>
+                </div>
+                {grievance.resolutionProof?.uploadedAt && (
+                  <span className="badge badge-resolved">Resolution proof available</span>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
+                <div>
+                  <p className="form-label" style={{ marginBottom: '0.75rem' }}>Citizen Evidence Images</p>
+                  <EvidenceImageGrid
+                    items={grievance.attachments}
+                    emptyText="No citizen evidence images attached."
+                  />
+                </div>
+                <div>
+                  <p className="form-label" style={{ marginBottom: '0.75rem' }}>Officer Resolution Proof Images</p>
+                  <EvidenceImageGrid
+                    items={grievance.resolutionProof?.images}
+                    emptyText="Resolution proof images will appear here once uploaded."
+                    tone="after"
+                  />
+                </div>
+              </div>
+              {grievance.resolutionProof?.note && (
+                <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(14,165,164,0.06)', border: '1px solid rgba(14,165,164,0.16)', borderRadius: 'var(--radius-md)' }}>
+                  <p className="form-label" style={{ marginBottom: '0.35rem' }}>Resolution Note</p>
+                  <p style={{ fontSize: '0.9375rem', lineHeight: 1.6 }}>{grievance.resolutionProof.note}</p>
+                </div>
+              )}
+            </div>
+
+            {feedbackNotice && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{
+                  padding: '1rem 1.25rem',
+                  background: grievance.status === 'reopened' ? 'var(--error-container)' : 'rgba(14,165,164,0.08)',
+                  color: grievance.status === 'reopened' ? 'var(--on-error-container)' : 'var(--primary)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: '1.5rem',
+                  fontWeight: 800
+                }}
+              >
+                {feedbackNotice}
+              </motion.div>
+            )}
+
+            {grievance.status === 'resolved' && !grievance.feedback?.submittedAt && (
+              <form className="card" style={{ padding: '2rem', marginBottom: '1.5rem' }} onSubmit={handleFeedbackSubmit}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.25rem' }}>Resolution Feedback</h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+                      Let the officer know whether the issue was resolved properly.
+                    </p>
+                  </div>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--warning)' }}>stars</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  <div>
+                    <p className="form-label" style={{ marginBottom: '0.75rem' }}>Rating</p>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {[1, 2, 3, 4, 5].map(rating => (
+                        <button
+                          key={rating}
+                          type="button"
+                          onClick={() => setFeedbackForm(prev => ({ ...prev, rating }))}
+                          className="btn btn-sm"
+                          style={{
+                            width: '2.75rem',
+                            height: '2.5rem',
+                            padding: 0,
+                            borderRadius: 'var(--radius-md)',
+                            background: Number(feedbackForm.rating) === rating ? 'var(--warning)' : 'var(--surface-container-low)',
+                            color: Number(feedbackForm.rating) === rating ? '#ffffff' : 'var(--on-surface-variant)',
+                            border: '1px solid var(--outline-variant)'
+                          }}
+                          aria-label={`${rating} star rating`}
+                        >
+                          {rating}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="form-label" style={{ marginBottom: '0.75rem' }}>Are you satisfied?</p>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {[
+                        { value: 'yes', label: 'Yes, resolved', icon: 'check_circle' },
+                        { value: 'no', label: 'No, reopen', icon: 'report_problem' }
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setFeedbackForm(prev => ({ ...prev, satisfied: option.value }))}
+                          className="btn btn-outline"
+                          style={{
+                            borderColor: feedbackForm.satisfied === option.value ? 'var(--primary)' : 'var(--outline-variant)',
+                            background: feedbackForm.satisfied === option.value ? 'rgba(14,165,164,0.08)' : 'rgba(255,255,255,0.75)',
+                            color: feedbackForm.satisfied === option.value ? 'var(--primary)' : 'var(--on-surface)'
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>{option.icon}</span>
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    {feedbackForm.satisfied === 'no' && (
+                      <p style={{ marginTop: '0.75rem', color: 'var(--error)', fontSize: '0.875rem', fontWeight: 700 }}>
+                        This will reopen your complaint for review.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="form-label">Comment</label>
+                    <textarea
+                      className="form-textarea"
+                      rows={3}
+                      value={feedbackForm.comment}
+                      onChange={e => setFeedbackForm(prev => ({ ...prev, comment: e.target.value }))}
+                      placeholder="Add a short note for the officer..."
+                    />
+                  </div>
+
+                  {feedbackError && (
+                    <div style={{ padding: '0.875rem 1rem', background: 'var(--error-container)', color: 'var(--on-error-container)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: 700 }}>
+                      {feedbackError}
+                    </div>
+                  )}
+
+                  <button type="submit" className="btn btn-primary" disabled={feedbackLoading} style={{ alignSelf: 'flex-start' }}>
+                    {feedbackLoading ? <span className="spinner" style={{ width: '1rem', height: '1rem', borderWidth: '2px' }} /> : <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span>}
+                    Submit Feedback
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {grievance.feedback?.submittedAt && (
+              <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 800, marginBottom: '0.35rem' }}>Feedback Submitted</p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>
+                      Rating: {grievance.feedback.rating}/5
+                      {grievance.feedback.comment ? ` - ${grievance.feedback.comment}` : ''}
+                    </p>
+                  </div>
+                  {grievance.feedback.satisfied !== undefined && (
+                    <span className={`badge ${grievance.feedback.satisfied ? 'badge-resolved' : 'badge-reopened'}`}>
+                      {grievance.feedback.satisfied ? 'Satisfied' : 'Not satisfied'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Timeline */}
             {grievance.timeline && grievance.timeline.length > 0 && (

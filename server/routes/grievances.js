@@ -1,16 +1,158 @@
 const express = require('express');
+const multer = require('multer');
+const fs = require('fs/promises');
+const path = require('path');
+const crypto = require('crypto');
 const Grievance = require('../models/Grievance');
 const { auth, requireRole } = require('../middleware/auth');
 const { analyzeGrievance } = require('../utils/geminiAI');
 const { createAuditEntry, createCaseHistoryEntry, appendAuditLog, appendCaseHistory } = require('../utils/auditLogger');
+const { cloudinary, isConfigured: isCloudinaryConfigured } = require('../config/cloudinary');
 
 const router = express.Router();
 
+const resolutionProofUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    files: 8,
+    fileSize: 5 * 1024 * 1024
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype?.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed for resolution proof'));
+    }
+    cb(null, true);
+  }
+});
+
+const parseResolutionProofUpload = (req, res, next) => {
+  resolutionProofUpload.array('images', 8)(req, res, (error) => {
+    if (!error) return next();
+
+    const message = error instanceof multer.MulterError
+      ? `Upload failed: ${error.message}`
+      : error.message || 'Upload failed';
+
+    return res.status(400).json({ error: message });
+  });
+};
+
+// Multer for grievance creation (optional image upload — live geo-tagged evidence)
+const grievanceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    files: 8,
+    fileSize: 10 * 1024 * 1024  // 10 MB for high-res camera photos
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype?.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed as evidence'));
+    }
+    cb(null, true);
+  }
+});
+
+const parseGrievanceUpload = (req, res, next) => {
+  grievanceUpload.fields([
+    { name: 'liveEvidence', maxCount: 1 },
+    { name: 'images', maxCount: 8 }
+  ])(req, res, (error) => {
+    if (!error) return next();
+    const message = error instanceof multer.MulterError
+      ? `Evidence upload failed: ${error.message}`
+      : error.message || 'Evidence upload failed';
+    return res.status(400).json({ error: message });
+  });
+};
+
+const uploadImageToCloudinary = (file, folder) => new Promise((resolve, reject) => {
+  const stream = cloudinary.uploader.upload_stream(
+    {
+      folder,
+      resource_type: 'image'
+    },
+    (error, result) => {
+      if (error) return reject(error);
+      resolve({
+        url: result.secure_url,
+        publicId: result.public_id,
+        originalName: file.originalname,
+        format: result.format || file.mimetype?.split('/')[1] || 'jpeg',
+        bytes: result.bytes || file.size,
+        uploadedAt: new Date()
+      });
+    }
+  );
+
+  stream.end(file.buffer);
+});
+
+const sanitizeFileName = (name = 'evidence') => (
+  name
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-z0-9-_]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'evidence'
+);
+
+const saveLocalEvidenceImage = async (file, folder, req) => {
+  const relativeFolder = folder.replace(/^civictrust\/?/, '').replace(/\\/g, '/');
+  const uploadDir = path.join(__dirname, '..', 'uploads', relativeFolder);
+  const format = file.mimetype?.split('/')[1] || path.extname(file.originalname || '').replace('.', '') || 'jpg';
+  const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}-${sanitizeFileName(file.originalname)}.${format}`;
+
+  await fs.mkdir(uploadDir, { recursive: true });
+  await fs.writeFile(path.join(uploadDir, filename), file.buffer);
+
+  const publicPath = `/uploads/${relativeFolder}/${filename}`.replace(/\\/g, '/');
+  return {
+    url: `${req.protocol}://${req.get('host')}${publicPath}`,
+    publicId: `local/${relativeFolder}/${filename}`,
+    originalName: file.originalname,
+    format,
+    bytes: file.size,
+    uploadedAt: new Date()
+  };
+};
+
+const uploadEvidenceImage = async (file, folder, req) => {
+  if (isCloudinaryConfigured) {
+    try {
+      return await uploadImageToCloudinary(file, folder);
+    } catch (error) {
+      console.error('[grievance] Cloudinary upload failed, storing locally:', error.message);
+    }
+  }
+
+  return saveLocalEvidenceImage(file, folder, req);
+};
+
 const cleanString = (value) => (typeof value === 'string' ? value.trim() : value);
+
+const parseJsonField = (value, fallback = null) => {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return fallback;
+  }
+};
 
 const toNumberOrUndefined = (value) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : undefined;
+};
+
+const toBooleanOrUndefined = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return undefined;
+
+  const normalized = value.trim().toLowerCase();
+  if (['true', 'yes', '1'].includes(normalized)) return true;
+  if (['false', 'no', '0'].includes(normalized)) return false;
+  return undefined;
 };
 
 const firstNumber = (...values) => {
@@ -107,18 +249,18 @@ router.get('/stats', auth, async (req, res) => {
   }
 });
 
-// Create new grievance
-router.post('/', auth, async (req, res) => {
+// Create new grievance (accepts optional multipart/form-data with images[] for live geo-tagged evidence)
+router.post('/', auth, parseGrievanceUpload, async (req, res) => {
   try {
-    const { 
-      title, 
-      description, 
-      category, 
-      location, 
-      dateOfIncident, 
-      citizenPhone, 
-      coordinates, 
-      privacyConsent, 
+    const {
+      title,
+      description,
+      category,
+      location,
+      dateOfIncident,
+      citizenPhone,
+      coordinates,
+      privacyConsent,
       privacyConsentAt,
       locationSource, // GPS | QR | Manual
       locationDetected // { lat, lng, accuracy, address, landmark, city, state, pincode, source }
@@ -133,40 +275,63 @@ router.post('/', auth, async (req, res) => {
       'Sanitation & Waste': 'Sanitation',
       'Water Supply': 'Water Authority',
       'Electricity': 'Electricity Board',
-      'Public Safety': 'Municipal Safety'
+      'Public Safety': 'Municipal Safety',
+      'Other': 'Manual Review Desk'
     };
 
-    const finalDepartment = aiResult.suggestedDepartment;
-    const finalCategory = category || Object.keys(categoryDeptMap).find(
+    const normalizedConfidence = Number(aiResult.confidence);
+    const lowConfidence = Number.isFinite(normalizedConfidence) && normalizedConfidence < 40;
+    const aiNeedsManualReview = aiResult.requiresHumanReview && (lowConfidence || aiResult.confidenceBand === 'Low')
+      || aiResult.category === 'Other'
+      || aiResult.suggestedDepartment === 'Manual Review Desk';
+
+    const mappedAiCategory = aiResult.category || Object.keys(categoryDeptMap).find(
       k => categoryDeptMap[k] === aiResult.suggestedDepartment
-    ) || 'Public Infrastructure';
+    );
+    const finalCategory = aiNeedsManualReview ? (category || 'Other') : (category || mappedAiCategory || 'Other');
+    const finalDepartment = aiNeedsManualReview ? 'Manual Review Desk' : (aiResult.suggestedDepartment || categoryDeptMap[finalCategory] || 'Manual Review Desk');
 
     // Parse location data (could be string or object). Keep legacy coordinates while
     // also storing top-level lat/lng for newer clients.
+    const parsedLocation = parseJsonField(location, location);
+    const parsedLocationDetected = parseJsonField(locationDetected, null);
+
     let locationObject = {};
-    if (typeof location === 'string') {
-      locationObject.address = cleanString(location);
-    } else if (location && typeof location === 'object') {
-      locationObject = { ...location };
+    if (typeof parsedLocation === 'string') {
+      locationObject.address = cleanString(parsedLocation);
+    } else if (parsedLocation && typeof parsedLocation === 'object') {
+      locationObject = { ...parsedLocation };
     }
 
-    const detectedLocation = locationDetected && typeof locationDetected === 'object' ? locationDetected : null;
+    const detectedLocation = parsedLocationDetected && typeof parsedLocationDetected === 'object' ? parsedLocationDetected : null;
     if (detectedLocation) {
       locationObject.landmark = cleanString(detectedLocation.landmark) || locationObject.landmark;
       locationObject.address = cleanString(detectedLocation.address) || locationObject.address;
       locationObject.city = cleanString(detectedLocation.city) || locationObject.city;
       locationObject.state = cleanString(detectedLocation.state) || locationObject.state;
-      locationObject.pincode = cleanString(detectedLocation.pincode) || locationObject.pincode;
       locationObject.area = cleanString(detectedLocation.area) || locationObject.area;
       locationObject.ward = cleanString(detectedLocation.ward) || locationObject.ward;
       locationObject.zone = cleanString(detectedLocation.zone) || locationObject.zone;
       locationObject.accuracy = toNumberOrUndefined(detectedLocation.accuracy) ?? locationObject.accuracy;
       locationObject.source = detectedLocation.source || locationSource || locationObject.source;
       locationObject.detectedAt = new Date();
+
+      // Part G: Prefer manual pincode from client over geocoder pincode
+      const manualPincode = cleanString(detectedLocation.pincode);
+      if (manualPincode) locationObject.pincode = manualPincode;
+
+      // Part G: Save geocoder suggestion vs citizen-confirmed address separately
+      if (detectedLocation.suggestedAddress) {
+        locationObject.suggestedAddress = cleanString(detectedLocation.suggestedAddress);
+      }
+      if (detectedLocation.finalAddress) {
+        locationObject.finalAddress = cleanString(detectedLocation.finalAddress);
+      }
+      locationObject.confirmedByUser = toBooleanOrUndefined(detectedLocation.confirmedByUser) ?? false;
     } else if (coordinates) {
-      locationObject.coordinates = coordinates;
-    } else if (typeof location === 'string' && location.includes(',')) {
-      const [lat, lng] = location.split(',').map(s => parseFloat(s.trim()));
+      locationObject.coordinates = parseJsonField(coordinates, coordinates);
+    } else if (typeof parsedLocation === 'string' && parsedLocation.includes(',')) {
+      const [lat, lng] = parsedLocation.split(',').map(s => parseFloat(s.trim()));
       if (!isNaN(lat) && !isNaN(lng)) {
         locationObject.coordinates = { lat, lng };
       }
@@ -198,6 +363,71 @@ router.post('/', auth, async (req, res) => {
 
     locationObject.source = locationObject.source || locationSource || 'Manual';
 
+    // --- Live geo-tagged evidence: upload files to Cloudinary if present ---
+    const uploadedEvidenceImages = [];
+    const uploadedAttachments = [];
+    const liveEvidenceFile = req.files?.liveEvidence?.[0];
+    const uploadedFiles = req.files?.images || [];
+
+    // Parse the geoTag JSON sent alongside the file upload
+    let parsedGeoTag = null;
+    if (req.body.liveEvidenceGeoTag) {
+      try {
+        parsedGeoTag = JSON.parse(req.body.liveEvidenceGeoTag);
+      } catch (_) {
+        // Malformed JSON — ignore, still allow submission
+      }
+    }
+
+    const normalizedLiveGeoTag = parsedGeoTag ? {
+      lat: toNumberOrUndefined(parsedGeoTag.lat),
+      lng: toNumberOrUndefined(parsedGeoTag.lng),
+      accuracy: toNumberOrUndefined(parsedGeoTag.accuracy),
+      capturedAt: parsedGeoTag.capturedAt ? new Date(parsedGeoTag.capturedAt) : new Date(),
+      source: parsedGeoTag.source || 'GPS',
+      landmark: cleanString(parsedGeoTag.landmark) || '',
+      address: cleanString(parsedGeoTag.address) || ''
+    } : undefined;
+
+    if (liveEvidenceFile) {
+      const uploaded = await uploadEvidenceImage(liveEvidenceFile, 'civictrust/grievances/live-evidence', req);
+      uploadedEvidenceImages.push({
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+        originalName: uploaded.originalName,
+        format: uploaded.format || liveEvidenceFile.mimetype?.split('/')[1] || 'jpeg',
+        bytes: uploaded.bytes || liveEvidenceFile.size,
+        uploadedAt: uploaded.uploadedAt || new Date(),
+        evidenceType: 'LIVE_GEO_TAGGED',
+        verifiedLiveCapture: true,
+        geoTag: normalizedLiveGeoTag
+      });
+      uploadedAttachments.push({
+        filename: liveEvidenceFile.originalname,
+        path: uploaded.url,
+        mimetype: liveEvidenceFile.mimetype
+      });
+    }
+
+    for (const file of uploadedFiles) {
+      const uploaded = await uploadEvidenceImage(file, 'civictrust/grievances/uploads', req);
+      uploadedEvidenceImages.push({
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+        originalName: uploaded.originalName,
+        format: uploaded.format || file.mimetype?.split('/')[1] || 'jpeg',
+        bytes: uploaded.bytes || file.size,
+        uploadedAt: uploaded.uploadedAt || new Date(),
+        evidenceType: 'UPLOAD',
+        verifiedLiveCapture: false
+      });
+      uploadedAttachments.push({
+        filename: file.originalname,
+        path: uploaded.url,
+        mimetype: file.mimetype
+      });
+    }
+
     const grievance = new Grievance({
       title,
       description,
@@ -213,7 +443,9 @@ router.post('/', auth, async (req, res) => {
       citizenPhone: citizenPhone || req.user.phone,
       aiClassification: aiResult,
       privacyConsent: privacyConsent || false,
-      privacyConsentAt: privacyConsentAt || null
+      privacyConsentAt: privacyConsentAt || null,
+      attachments: uploadedAttachments,
+      evidenceImages: uploadedEvidenceImages
     });
 
     // --- AUDIT: Grievance Created ---
@@ -222,7 +454,7 @@ router.post('/', auth, async (req, res) => {
       action: "GRIEVANCE_CREATED",
       performedBy: citizenActor,
       newValue: { status: 'submitted', category: finalCategory, priority: aiResult.priority || 'medium', department: finalDepartment, locationSource: locationObject.source || 'Manual' },
-      reason: "Citizen submitted grievance via CivicTrust portal"
+      reason: `Citizen submitted grievance via CivicTrust portal${uploadedEvidenceImages.length > 0 ? ' with live geo-tagged evidence' : ''}`
     }));
 
     // --- AUDIT: AI Classification Applied ---
@@ -244,7 +476,9 @@ router.post('/', auth, async (req, res) => {
     // --- Case History: AI classified (citizen visible) ---
     appendCaseHistory(grievance, createCaseHistoryEntry({
       status: 'submitted',
-      note: `AI has classified your complaint as "${finalCategory}" and routed it to "${finalDepartment}".`,
+      note: aiNeedsManualReview
+        ? 'Your complaint needs more details, so it has been sent to manual review before final routing.'
+        : `AI has classified your complaint as "${finalCategory}" and routed it to "${finalDepartment}".`,
       actor: { name: 'CivicTrust AI', role: 'system' },
       visibility: 'citizen'
     }));
@@ -343,7 +577,7 @@ router.get('/:id', auth, async (req, res) => {
 router.get('/track/:trackingId', async (req, res) => {
   try {
     const grievance = await Grievance.findOne({ trackingId: req.params.trackingId })
-      .select('trackingId title category department priority status timeline caseHistory createdAt updatedAt');
+      .select('trackingId title category department priority status timeline caseHistory attachments resolutionProof feedback createdAt updatedAt');
 
     if (!grievance) {
       return res.status(404).json({ error: 'No grievance found with this tracking ID' });
@@ -408,6 +642,69 @@ router.patch('/:id/status', auth, requireRole('admin', 'department'), async (req
   }
 });
 
+// Upload resolution proof (admin/department only)
+router.post('/:id/resolution-proof', auth, requireRole('admin', 'department'), parseResolutionProofUpload, async (req, res) => {
+  try {
+    const note = cleanString(req.body.note) || '';
+    const files = req.files || [];
+
+    if (!note && files.length === 0) {
+      return res.status(400).json({ error: 'Resolution note or at least one image is required' });
+    }
+
+    if (files.length > 0 && !isCloudinaryConfigured) {
+      return res.status(503).json({ error: 'Cloudinary is not configured. Resolution proof images cannot be uploaded.' });
+    }
+
+    const grievance = await Grievance.findById(req.params.id);
+
+    if (!grievance) {
+      return res.status(404).json({ error: 'Grievance not found' });
+    }
+
+    const uploadedImages = files.length > 0
+      ? await Promise.all(files.map(file => uploadImageToCloudinary(file, 'civictrust/grievances/resolution')))
+      : [];
+
+    if (!grievance.resolutionProof) {
+      grievance.resolutionProof = { images: [] };
+    }
+
+    if (!Array.isArray(grievance.resolutionProof.images)) {
+      grievance.resolutionProof.images = [];
+    }
+
+    grievance.resolutionProof.images.push(...uploadedImages);
+    grievance.resolutionProof.note = note || grievance.resolutionProof.note;
+    grievance.resolutionProof.uploadedBy = req.userId;
+    grievance.resolutionProof.uploadedAt = new Date();
+
+    const actor = { userId: req.userId, name: req.user.name, role: req.user.role };
+    appendAuditLog(grievance, createAuditEntry({
+      action: "RESOLUTION_PROOF_UPLOADED",
+      performedBy: actor,
+      newValue: {
+        imagesUploaded: uploadedImages.length,
+        totalImages: grievance.resolutionProof.images.length,
+        note: note ? '[provided]' : '[unchanged]'
+      },
+      reason: "Officer uploaded resolution proof for citizen review"
+    }));
+
+    appendCaseHistory(grievance, createCaseHistoryEntry({
+      status: grievance.status,
+      note: 'Resolution proof uploaded',
+      actor: { name: req.user.name, role: req.user.role },
+      visibility: 'citizen'
+    }));
+
+    await grievance.save();
+    res.json({ grievance });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Assign grievance to department (admin only)
 router.patch('/:id/assign', auth, requireRole('admin'), async (req, res) => {
   try {
@@ -455,7 +752,21 @@ router.patch('/:id/assign', auth, requireRole('admin'), async (req, res) => {
 // Submit feedback (citizen only)
 router.post('/:id/feedback', auth, async (req, res) => {
   try {
-    const { rating, comment } = req.body;
+    const { rating, satisfied, comment } = req.body;
+    const parsedRating = Number(rating);
+    const satisfiedFromRequest = toBooleanOrUndefined(satisfied);
+    const finalSatisfied = satisfiedFromRequest !== undefined
+      ? satisfiedFromRequest
+      : parsedRating >= 4
+        ? true
+        : parsedRating <= 2
+          ? false
+          : undefined;
+
+    if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return res.status(400).json({ error: 'Rating must be a number from 1 to 5' });
+    }
+
     const grievance = await Grievance.findById(req.params.id);
 
     if (!grievance) {
@@ -466,9 +777,11 @@ router.post('/:id/feedback', auth, async (req, res) => {
       return res.status(403).json({ error: 'Only the filing citizen can provide feedback' });
     }
 
+    const oldStatus = grievance.status;
     grievance.feedback = {
-      rating,
-      comment,
+      rating: parsedRating,
+      satisfied: finalSatisfied,
+      comment: cleanString(comment) || '',
       submittedAt: new Date()
     };
 
@@ -477,11 +790,11 @@ router.post('/:id/feedback', auth, async (req, res) => {
     appendAuditLog(grievance, createAuditEntry({
       action: "CITIZEN_FEEDBACK_RECEIVED",
       performedBy: actor,
-      newValue: { rating, comment: comment ? '[provided]' : '[none]' },
-      reason: `Citizen provided feedback with rating ${rating}/5`
+      newValue: { rating: parsedRating, satisfied: finalSatisfied, comment: comment ? '[provided]' : '[none]' },
+      reason: `Citizen provided feedback with rating ${parsedRating}/5`
     }));
 
-    if (rating >= 4) {
+    if (finalSatisfied === true) {
       grievance.status = 'closed';
       grievance.timeline.push({
         status: 'closed',
@@ -491,8 +804,9 @@ router.post('/:id/feedback', auth, async (req, res) => {
       appendAuditLog(grievance, createAuditEntry({
         action: "GRIEVANCE_CLOSED",
         performedBy: actor,
+        oldValue: { status: oldStatus },
         newValue: { status: 'closed' },
-        reason: "Complaint closed after positive citizen feedback (rating >= 4)"
+        reason: "Complaint closed after satisfied citizen feedback"
       }));
       appendCaseHistory(grievance, createCaseHistoryEntry({
         status: 'closed',
@@ -500,22 +814,23 @@ router.post('/:id/feedback', auth, async (req, res) => {
         actor: { name: 'CivicTrust System', role: 'system' },
         visibility: 'citizen'
       }));
-    } else if (rating <= 2) {
+    } else if (finalSatisfied === false) {
       grievance.status = 'reopened';
       grievance.timeline.push({
         status: 'reopened',
-        note: 'Complaint reopened due to unsatisfactory resolution',
+        note: 'Citizen reopened complaint due to unsatisfactory resolution',
         timestamp: new Date()
       });
       appendAuditLog(grievance, createAuditEntry({
-        action: "GRIEVANCE_REOPENED",
+        action: "GRIEVANCE_REOPENED_BY_CITIZEN",
         performedBy: actor,
+        oldValue: { status: oldStatus },
         newValue: { status: 'reopened' },
-        reason: "Complaint reopened due to unsatisfactory resolution (rating <= 2)"
+        reason: "Citizen was not satisfied with the resolution"
       }));
       appendCaseHistory(grievance, createCaseHistoryEntry({
         status: 'reopened',
-        note: 'Your complaint has been reopened for further investigation based on your feedback.',
+        note: 'Citizen reopened complaint due to unsatisfactory resolution',
         actor: { name: 'CivicTrust System', role: 'system' },
         visibility: 'citizen'
       }));

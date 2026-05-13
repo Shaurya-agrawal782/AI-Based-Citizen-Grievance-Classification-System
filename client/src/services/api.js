@@ -13,6 +13,13 @@ api.interceptors.request.use(config => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (typeof config.headers.delete === 'function') {
+      config.headers.delete('Content-Type');
+    } else {
+      delete config.headers['Content-Type'];
+    }
+  }
   return config;
 });
 
@@ -47,6 +54,7 @@ export const grievanceAPI = {
   getById: (id) => api.get(`/grievances/${id}`),
   track: (trackingId) => api.get(`/grievances/track/${trackingId}`),
   updateStatus: (id, data) => api.patch(`/grievances/${id}/status`, data),
+  uploadResolutionProof: (id, data) => api.post(`/grievances/${id}/resolution-proof`, data),
   assign: (id, data) => api.patch(`/grievances/${id}/assign`, data),
   submitFeedback: (id, data) => api.post(`/grievances/${id}/feedback`, data),
   escalate: (id, data) => api.patch(`/grievances/${id}/escalate`, data),

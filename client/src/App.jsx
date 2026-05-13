@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import Navbar from './components/Navbar';
 import AIAssistant from './components/AIAssistant';
 import Landing from './pages/Landing';
@@ -101,9 +102,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }

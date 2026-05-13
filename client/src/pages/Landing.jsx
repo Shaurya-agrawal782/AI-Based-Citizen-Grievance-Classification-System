@@ -1,7 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import FixedLandingVideo from '../components/common/FixedLandingVideo';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 const sectionGlassStyle = {
   background: 'rgba(255,255,255,0.65)',
@@ -127,16 +129,19 @@ const insightMetrics = [
   { icon: 'confirmation_number', label: 'Ticket Tracking', value: 'Active' },
 ];
 
-const heroCtas = [
-  { label: 'File a New Grievance', to: '/new-grievance', icon: 'arrow_forward', primary: true },
-  { label: 'Report via QR Zone', to: '/qr-zones', icon: 'qr_code_scanner' },
-  { label: 'Track Ticket', to: '/track-ticket', icon: 'manage_search' },
-  { label: 'View Winning Demo', to: '/demo-mode', icon: 'play_circle', accent: true },
-];
+// heroCtas defined inside component (uses t())
 
 export default function Landing() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
+
+  const heroCtas = [
+    { label: t('landing.fileComplaint'), to: '/new-grievance', icon: 'arrow_forward', primary: true },
+    { label: t('landing.reportViaQR'), to: '/qr-zones', icon: 'qr_code_scanner' },
+    { label: t('landing.trackTicket'), to: '/track-ticket', icon: 'manage_search' },
+    { label: t('landing.viewDemo'), to: '/demo-mode', icon: 'play_circle', accent: true },
+  ];
 
   const handleFileGrievance = () => {
     navigate('/new-grievance');
@@ -177,10 +182,12 @@ export default function Landing() {
               <a href="#features" className="navbar-link">Features</a>
             </nav>
             <div className="navbar-actions">
+              {/* Language Switcher on landing page */}
+              <LanguageSwitcher />
               {user ? (
                 <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="btn btn-secondary btn-sm">
                   <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>dashboard</span>
-                  Dashboard
+                  {t('nav.dashboard')}
                 </Link>
               ) : (
                 <Link to="/auth" className="btn btn-secondary btn-sm">
@@ -268,7 +275,7 @@ export default function Landing() {
                     maxWidth: '740px',
                   }}
                 >
-                  AI-Powered Citizen Grievance Portal
+                  {t('landing.title')}
                 </h1>
 
                 <p
@@ -280,8 +287,7 @@ export default function Landing() {
                     marginBottom: '2rem',
                   }}
                 >
-                  Report civic issues through QR zones, voice, or text. CivicTrust AI classifies,
-                  prioritizes, routes, and tracks every complaint with transparency.
+                  {t('landing.subtitle')}
                 </p>
 
                 <div className="landing-cta-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '2.5rem' }}>
@@ -625,7 +631,7 @@ export default function Landing() {
                 onClick={handleFileGrievance}
                 className="btn btn-primary btn-lg"
               >
-                File a New Grievance
+                {t('landing.fileComplaint')}
                 <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>arrow_forward</span>
               </motion.button>
             </motion.div>

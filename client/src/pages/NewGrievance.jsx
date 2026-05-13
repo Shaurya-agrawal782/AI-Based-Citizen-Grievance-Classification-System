@@ -1,13 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Loader2, AlertCircle, ShieldAlert, Navigation, Trash2, Edit2, Check } from 'lucide-react';
+import { Mic, Loader2, AlertCircle, AlertTriangle, ShieldAlert, Navigation, Trash2, Edit2, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { grievanceAPI, aiAPI } from '../services/api';
 import VoiceComplaintInput from '../components/citizen/VoiceComplaintInput';
 import GrievanceCopilot from '../components/citizen/GrievanceCopilot';
+import LiveGeoTaggedCapture from '../components/citizen/LiveGeoTaggedCapture';
 import { qrZones } from '../data/qrZones';
 import { detectGPSLocation, reverseGeocode, formatAccuracy, getQRContext, setQRContext, clearQRContext } from '../utils/locationHelper';
+import { watermarkImage } from '../utils/watermarkEvidenceImage';
+import {
+  buildNeedsReviewClassification,
+  categoryFromDepartment,
+  isLowConfidenceClassification,
+  isMeaningfulComplaintText,
+  normalizeConfidencePercent
+} from '../utils/complaintQuality';
 
 const categories = [
   { value: 'Public Infrastructure', icon: 'construction', color: '#283593', bg: '#e8eaf6' },
@@ -33,14 +42,34 @@ const formatCoordinate = (value) => {
 const buildLocationPreview = (fields) => {
   const landmark = fields.landmark?.trim();
   const address = fields.address?.trim();
+  const pincode = fields.pincode?.trim();
 
-  if (landmark && address) return `${landmark}, ${address}`;
-  return landmark || address || '';
+  const base = (landmark && address) ? `${landmark}, ${address}` : (landmark || address || '');
+  if (!base) return '';
+  // Append manual pincode if not already present in base string
+  if (pincode && !base.includes(pincode)) return `${base} - ${pincode}`;
+  return base;
 };
 
 const buildLocationPayload = (fields, detected, sourceOverride) => {
   const lat = detected?.lat ?? detected?.coordinates?.lat ?? null;
   const lng = detected?.lng ?? detected?.coordinates?.lng ?? null;
+
+  // suggestedAddress = raw geocoder output; user should not blindly trust it
+  const suggestedAddress = detected?.address || fields.address?.trim() || '';
+
+  // finalAddress = constructed from user-confirmed fields
+  const finalParts = [
+    fields.landmark?.trim(),
+    fields.area?.trim(),
+    fields.city?.trim(),
+    fields.state?.trim(),
+  ].filter(Boolean);
+  const manualPincode = fields.pincode?.trim() || detected?.pincode || '';
+  let finalAddress = finalParts.join(', ');
+  if (manualPincode) finalAddress = finalAddress ? `${finalAddress} - ${manualPincode}` : manualPincode;
+  if (!finalAddress) finalAddress = suggestedAddress;
+
   const payload = {
     lat,
     lng,
@@ -49,8 +78,12 @@ const buildLocationPayload = (fields, detected, sourceOverride) => {
     landmark: fields.landmark?.trim() || '',
     city: fields.city?.trim() || detected?.city || '',
     state: fields.state?.trim() || detected?.state || '',
-    pincode: fields.pincode?.trim() || detected?.pincode || '',
+    pincode: manualPincode,
     source: sourceOverride || detected?.source || 'Manual',
+    suggestedAddress,
+    finalAddress,
+    confirmedByUser: true,
+    detectedAt: detected?.timestamp ? new Date(detected.timestamp).toISOString() : new Date().toISOString(),
   };
 
   if (fields.area?.trim() || detected?.area) payload.area = fields.area?.trim() || detected?.area;
@@ -60,6 +93,8 @@ const buildLocationPayload = (fields, detected, sourceOverride) => {
 
   return payload;
 };
+
+const getFileKey = (file, index) => `${file.name}-${file.size}-${file.lastModified}-${index}`;
 
 export default function NewGrievance() {
   const { user } = useAuth();
@@ -75,6 +110,9 @@ export default function NewGrievance() {
   const [duplicateInfo, setDuplicateInfo] = useState(null);
   const [duplicateLoading, setDuplicateLoading] = useState(false);
   const [files, setFiles] = useState([]);
+  const [filePreviewUrls, setFilePreviewUrls] = useState({});
+  const [liveEvidence, setLiveEvidence] = useState(null);
+  const [liveCaptureStatus, setLiveCaptureStatus] = useState('idle');
   const [isDragging, setIsDragging] = useState(false);
   
   // Location management
@@ -98,10 +136,13 @@ export default function NewGrievance() {
     pincode: '',
   });
   const locationFieldsRef = useRef(locationFields);
+  const fileInputRef = useRef(null);
 
   const handleFileSelect = (e) => {
-    const selectedFiles = Array.from(e.target.files);
+    const selectedFiles = Array.from(e.target.files || []);
+    if (!selectedFiles.length) return;
     setFiles(prev => [...prev, ...selectedFiles]);
+    e.target.value = '';
   };
 
   const handleDragOver = (e) => {
@@ -116,7 +157,8 @@ export default function NewGrievance() {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-    const droppedFiles = Array.from(e.dataTransfer.files);
+    const droppedFiles = Array.from(e.dataTransfer.files || []);
+    if (!droppedFiles.length) return;
     setFiles(prev => [...prev, ...droppedFiles]);
   };
 
@@ -138,6 +180,22 @@ export default function NewGrievance() {
   });
 
   const [voiceLanguage, setVoiceLanguage] = useState('hi-IN');
+
+  useEffect(() => {
+    const previews = {};
+
+    files.forEach((file, index) => {
+      if (file.type?.startsWith('image/')) {
+        previews[getFileKey(file, index)] = URL.createObjectURL(file);
+      }
+    });
+
+    setFilePreviewUrls(previews);
+
+    return () => {
+      Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [files]);
 
   useEffect(() => {
     locationFieldsRef.current = locationFields;
@@ -294,11 +352,15 @@ export default function NewGrievance() {
     if (locationDetected) {
       const fields = locationFieldsRef.current;
       const hasLandmark = Boolean(fields.landmark?.trim());
-      const needsLandmark = Number(locationDetected.accuracy) > 100 && !hasLandmark;
+      const hasPincode = Boolean(fields.pincode?.trim());
 
-      if (needsLandmark) {
-        setLocationWarning('Please add an exact landmark for better routing.');
-        setShowLocationEdit(true);
+      const warnings = [];
+      if (!hasLandmark) warnings.push('Please add an exact landmark for faster routing.');
+      if (!hasPincode) warnings.push('Please confirm pincode if available.');
+
+      if (warnings.length > 0) {
+        setLocationWarning(warnings.join(' '));
+        if (!hasLandmark) setShowLocationEdit(true);
       } else {
         setLocationWarning(null);
         setShowLocationEdit(false);
@@ -309,7 +371,8 @@ export default function NewGrievance() {
         location: buildLocationPreview(fields) || locationDetected.address,
         locationSource: locationDetected.source,
       }));
-      setLocationConfirmed(hasLandmark);
+      // Always confirm after user explicitly clicks Use This Location
+      setLocationConfirmed(true);
     }
   };
 
@@ -373,7 +436,46 @@ export default function NewGrievance() {
     await handleDetectLocation();
   };
 
+  const buildLiveEvidenceGeoTag = (finalLocation) => {
+    if (!liveEvidence?.file) return null;
+
+    return {
+      lat: liveEvidence.geoTag?.lat ?? null,
+      lng: liveEvidence.geoTag?.lng ?? null,
+      accuracy: liveEvidence.geoTag?.accuracy ?? null,
+      capturedAt: liveEvidence.geoTag?.capturedAt || new Date().toISOString(),
+      source: liveEvidence.geoTag?.source || 'GPS',
+      landmark: liveEvidence.landmark || liveEvidence.geoTag?.landmark || finalLocation?.landmark || '',
+      address: liveEvidence.geoTag?.address || finalLocation?.address || form.location || ''
+    };
+  };
+
+  const appendPayloadToFormData = (formData, payload) => {
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
+    });
+  };
+
+  const getCombinedComplaintText = () => `${form.title || ''} ${form.description || ''}`.trim();
+
   const handleSubmit = async () => {
+    const needsManualReview = isLowConfidenceClassification(aiClassification)
+      || !isMeaningfulComplaintText(getCombinedComplaintText());
+
+    if (needsManualReview && !window.confirm('Your complaint needs more details. It may be sent to manual review.')) {
+      return;
+    }
+
+    const hasLiveEvidence = Boolean(liveEvidence?.file);
+    if (!hasLiveEvidence) {
+      const warning = aiClassification?.priority === 'critical' || aiClassification?.priority === 'high'
+        ? 'Critical complaints should include live geo-tagged evidence when possible. Continue without it?'
+        : 'Live geo-tagged evidence improves verification. Continue without it?';
+
+      if (!window.confirm(warning)) return;
+    }
+
     setLoading(true);
     try {
       const fieldsForSubmit = {
@@ -386,15 +488,46 @@ export default function NewGrievance() {
         form.locationSource || locationDetected?.source || 'Manual'
       );
 
-      const res = await grievanceAPI.create({
+      const aiSuggestedCategory = aiClassification
+        ? aiClassification.category || categoryFromDepartment(aiClassification.suggestedDepartment)
+        : undefined;
+
+      const payload = {
         ...form,
         location: finalLocation,
-        category: form.category || aiClassification?.suggestedDepartment,
+        category: form.category || aiSuggestedCategory,
         privacyConsentAt: new Date().toISOString(),
         locationSource: finalLocation.source, // Include source (GPS | QR | Manual)
         locationDetected: finalLocation,
         locationConfirmed,
-      });
+      };
+
+      const shouldUseMultipart = hasLiveEvidence || files.length > 0;
+      let res;
+
+      if (shouldUseMultipart) {
+        const formData = new FormData();
+        appendPayloadToFormData(formData, payload);
+
+        if (hasLiveEvidence) {
+          const liveGeoTag = buildLiveEvidenceGeoTag(finalLocation);
+          let liveFile = liveEvidence.file;
+
+          try {
+            liveFile = await watermarkImage(liveEvidence.file, liveGeoTag, liveGeoTag?.landmark || '');
+          } catch (error) {
+            console.warn('Evidence watermarking skipped:', error);
+          }
+
+          formData.append('liveEvidence', liveFile, liveFile.name || liveEvidence.file.name || 'live-evidence.jpg');
+          formData.append('liveEvidenceGeoTag', JSON.stringify(liveGeoTag));
+        }
+
+        files.forEach(file => formData.append('images', file, file.name));
+        res = await grievanceAPI.create(formData);
+      } else {
+        res = await grievanceAPI.create(payload);
+      }
       
       // Clear QR context after successful submission
       clearQRContext();
@@ -409,10 +542,27 @@ export default function NewGrievance() {
 
   // Debounced AI classification and Duplicate Check
   useEffect(() => {
-    if (step !== 2 || (!form.title && !form.description)) return;
+    if (step !== 2) return;
+
+    const combinedComplaintText = `${form.title || ''} ${form.description || ''}`.trim();
+    if (!combinedComplaintText) {
+      setAiClassification(null);
+      setDuplicateInfo(null);
+      setAiLoading(false);
+      setDuplicateLoading(false);
+      return;
+    }
 
     const timer = setTimeout(async () => {
-      if (form.title.length > 5 || form.description.length > 10) {
+      if (!isMeaningfulComplaintText(combinedComplaintText)) {
+        setAiClassification(buildNeedsReviewClassification());
+        setDuplicateInfo(null);
+        setAiLoading(false);
+        setDuplicateLoading(false);
+        return;
+      }
+
+      if (combinedComplaintText.length >= 15) {
         setAiLoading(true);
         setDuplicateLoading(true);
         try {
@@ -452,7 +602,7 @@ export default function NewGrievance() {
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [form.title, form.description, step]);
+  }, [form.title, form.description, step, files]);
 
   const canProceed = () => {
     if (step === 1) return form.citizenName && form.citizenEmail;
@@ -462,7 +612,25 @@ export default function NewGrievance() {
 
   const finalLocationPreview = buildLocationPreview(locationFields);
   const accuracyStatus = getAccuracyStatus(locationDetected?.accuracy);
-  const showAccuracyWarning = locationDetected?.source === 'GPS' && Number(locationDetected.accuracy) > 50;
+  const gpsAccuracy = Number(locationDetected?.accuracy);
+  // Two-level accuracy warnings
+  const showAccuracyWarning = locationDetected?.source === 'GPS' && gpsAccuracy > 50 && gpsAccuracy <= 100;
+  const showStrongAccuracyWarning = locationDetected?.source === 'GPS' && gpsAccuracy > 100;
+  const liveCaptureHidesUpload = ['camera-loading', 'camera', 'capturing', 'gps', 'preview', 'gps-denied'].includes(liveCaptureStatus) || Boolean(liveEvidence?.file);
+  const aiNeedsReview = isLowConfidenceClassification(aiClassification);
+  const aiConfidencePercent = normalizeConfidencePercent(aiClassification?.confidence ?? aiClassification?.classification?.confidence);
+  const aiSuggestedRoute = aiNeedsReview
+    ? 'Needs Review'
+    : aiClassification?.suggestedDepartment || aiClassification?.classification?.suggestedDepartment || 'Analyzing...';
+  const aiStatusText = aiLoading
+    ? 'Analyzing description...'
+    : aiNeedsReview
+    ? 'Waiting for clear complaint details'
+    : aiClassification
+    ? 'Classification ready'
+    : 'Waiting for input...';
+  const aiMatchLabel = aiNeedsReview ? 'Low Confidence' : `${aiConfidencePercent}% Match`;
+  const aiLanguageLabel = aiNeedsReview ? 'Not enough text' : (aiClassification?.detectedLanguage || 'Detecting...');
 
   // Success screen
   if (success) {
@@ -503,7 +671,7 @@ export default function NewGrievance() {
         </div>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <button onClick={() => navigate('/dashboard')} className="btn btn-secondary civic-gradient-button">Go to Dashboard</button>
-          <button onClick={() => { setSuccess(null); setStep(1); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">File Another</button>
+          <button onClick={() => { setSuccess(null); setStep(1); setFiles([]); setLiveEvidence(null); setLiveCaptureStatus('idle'); setForm({ ...form, title: '', description: '', category: '', location: '', dateOfIncident: '' }); }} className="btn btn-outline warm-outline-button">File Another</button>
         </div>
       </div>
       </div>
@@ -737,10 +905,11 @@ export default function NewGrievance() {
                           </p>
                         </div>
 
+                        {/* Part D: Two-level accuracy warnings */}
                         {showAccuracyWarning && (
                           <div style={{
                             padding: '0.75rem',
-                            background: 'rgba(239,153,0,0.1)',
+                            background: 'rgba(239,153,0,0.08)',
                             border: '1px solid rgba(239,153,0,0.2)',
                             borderRadius: 'var(--radius-sm)',
                             marginBottom: '0.75rem',
@@ -749,15 +918,33 @@ export default function NewGrievance() {
                             alignItems: 'flex-start',
                           }}>
                             <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>GPS location is approximate. Please add exact landmark before submitting.</span>
+                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>GPS is approximate. Please add exact landmark and pincode for better routing.</span>
+                          </div>
+                        )}
+                        {showStrongAccuracyWarning && (
+                          <div style={{
+                            padding: '0.75rem',
+                            background: 'rgba(239,100,0,0.1)',
+                            border: '1px solid rgba(239,100,0,0.3)',
+                            borderRadius: 'var(--radius-sm)',
+                            marginBottom: '0.75rem',
+                            display: 'flex',
+                            gap: '0.5rem',
+                            alignItems: 'flex-start',
+                          }}>
+                            <AlertTriangle size={14} color="#e65100" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.75rem', color: '#b34000', fontWeight: 600 }}>Location accuracy is moderate/low. Manual confirmation is recommended.</span>
                           </div>
                         )}
 
+                        {/* Part A: Suggested Address label + helper text */}
                         <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Detected Address</p>
-                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5 }}>{locationFields.address || locationDetected.address || 'Address not available'}</p>
+                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Suggested Address</p>
+                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.25rem' }}>{locationFields.address || locationDetected.address || 'Address not available'}</p>
+                          <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic', lineHeight: 1.4 }}>Address and pincode are estimated from map data. Please confirm landmark and pincode before submitting.</p>
                         </div>
 
+                        {/* Part B: Landmark field in location card */}
                         <div className="form-group" style={{ marginBottom: '0.75rem' }}>
                           <label className="form-label" htmlFor="detectedLandmark">Exact Landmark / Place</label>
                           <input
@@ -766,8 +953,26 @@ export default function NewGrievance() {
                             type="text"
                             value={locationFields.landmark}
                             onChange={e => updateLocationFields({ landmark: e.target.value })}
-                            placeholder="Example: Bansal College, Main Gate, Near Canteen"
+                            placeholder="Example: Bansal College Main Gate, Anand Nagar"
                           />
+                        </div>
+
+                        {/* Part B: Quick pincode confirmation in location card */}
+                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                          <label className="form-label" htmlFor="quickPincode">Confirm Pincode</label>
+                          <input
+                            id="quickPincode"
+                            className="form-input"
+                            type="text"
+                            inputMode="numeric"
+                            value={locationFields.pincode}
+                            onChange={e => updateLocationFields({ pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                            placeholder="Example: 462022"
+                            maxLength={6}
+                          />
+                          {locationFields.pincode && !/^\d{6}$/.test(locationFields.pincode) && (
+                            <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>⚠ Enter a valid 6-digit Indian pincode.</p>
+                          )}
                         </div>
 
                         {locationWarning && (
@@ -786,9 +991,24 @@ export default function NewGrievance() {
                           </div>
                         )}
 
-                        <div style={{ padding: '0.75rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>Final Location Preview</p>
-                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5 }}>{finalLocationPreview || 'Add address or landmark to preview final location.'}</p>
+                        {/* Part C: Final Location Preview with GPS coords */}
+                        <div style={{ padding: '0.75rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.2)' }}>
+                          <p style={{ color: 'var(--primary)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Final Location Preview</p>
+                          {finalLocationPreview ? (
+                            <>
+                              <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.5rem', fontWeight: 600 }}>{finalLocationPreview}</p>
+                              <div style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace', lineHeight: 1.6, paddingTop: '0.375rem', borderTop: '1px dashed var(--outline-variant)' }}>
+                                <span>Lat: {formatCoordinate(locationDetected.lat)}</span>
+                                <span style={{ margin: '0 0.5rem' }}>|</span>
+                                <span>Lng: {formatCoordinate(locationDetected.lng)}</span>
+                                {locationDetected.accuracy && (
+                                  <span> | Accuracy: {Math.round(gpsAccuracy)}m</span>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic' }}>Add landmark and confirm pincode to preview final location.</p>
+                          )}
                         </div>
 
                         <div style={{ display: 'none' }}>
@@ -917,13 +1137,14 @@ export default function NewGrievance() {
                             <label className="form-label" htmlFor="area">Area</label>
                             <input id="area" className="form-input" type="text" value={locationFields.area} onChange={e => updateLocationFields({ area: e.target.value })} placeholder="e.g. Arera Hills" />
                           </div>
+                          {/* Part B: Ward, Zone, State, Pincode with correct placeholders */}
                           <div className="form-group">
                             <label className="form-label" htmlFor="ward">Ward</label>
-                            <input id="ward" className="form-input" type="text" value={locationFields.ward} onChange={e => updateLocationFields({ ward: e.target.value })} placeholder="e.g. Ward 1 North" />
+                            <input id="ward" className="form-input" type="text" value={locationFields.ward} onChange={e => updateLocationFields({ ward: e.target.value })} placeholder="Example: Ward 1" />
                           </div>
                           <div className="form-group">
                             <label className="form-label" htmlFor="zone">Zone</label>
-                            <input id="zone" className="form-input" type="text" value={locationFields.zone} onChange={e => updateLocationFields({ zone: e.target.value })} placeholder="e.g. Central" />
+                            <input id="zone" className="form-input" type="text" value={locationFields.zone} onChange={e => updateLocationFields({ zone: e.target.value })} placeholder="Example: North Zone" />
                           </div>
                           <div className="form-group">
                             <label className="form-label" htmlFor="state">State</label>
@@ -931,7 +1152,19 @@ export default function NewGrievance() {
                           </div>
                           <div className="form-group">
                             <label className="form-label" htmlFor="pincode">Pincode</label>
-                            <input id="pincode" className="form-input" type="text" value={locationFields.pincode} onChange={e => updateLocationFields({ pincode: e.target.value })} placeholder="e.g. 462001" />
+                            <input
+                              id="pincode"
+                              className="form-input"
+                              type="text"
+                              inputMode="numeric"
+                              value={locationFields.pincode}
+                              onChange={e => updateLocationFields({ pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                              placeholder="Example: 462022"
+                              maxLength={6}
+                            />
+                            {locationFields.pincode && !/^\d{6}$/.test(locationFields.pincode) && (
+                              <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>⚠ Enter a valid 6-digit Indian pincode.</p>
+                            )}
                           </div>
                         </div>
                         <div className="form-group">
@@ -1011,36 +1244,73 @@ export default function NewGrievance() {
                       ))}
                     </div>
                   </div>
-                  <div
-                    className={`upload-zone ${isDragging ? 'dragging' : ''}`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => document.getElementById('fileInput').click()}
-                  >
-                    <input
-                      id="fileInput"
-                      type="file"
-                      multiple
-                      onChange={handleFileSelect}
-                      style={{ display: 'none' }}
-                    />
-                    <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: isDragging ? 'var(--primary)' : 'var(--outline)', marginBottom: '0.5rem', display: 'block' }}>
-                      {isDragging ? 'download' : 'cloud_upload'}
-                    </span>
-                    <p style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
-                      {isDragging ? 'Drop files now' : 'Drag and drop files here or click to browse'}
-                    </p>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>Supported formats: JPG, PNG, PDF (Max 5MB)</p>
+
+                  <div className="form-group">
+                    <div>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>Live Geo-Tagged Evidence</h3>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
+                        Capture a fresh photo from the complaint location. CivicTrust will attach GPS coordinates and timestamp for verification.
+                      </p>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>
+                        Live geo-tagged capture is recommended for evidence verification.
+                      </p>
+                    </div>
+                    <LiveGeoTaggedCapture onEvidenceChange={setLiveEvidence} onStatusChange={setLiveCaptureStatus} />
                   </div>
+
+                  <input
+                    id="fileInput"
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,application/pdf"
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                  />
+
+                  {!liveCaptureHidesUpload && files.length === 0 && (
+                    <div
+                      className={`upload-zone ${isDragging ? 'dragging' : ''}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: isDragging ? 'var(--primary)' : 'var(--outline)', marginBottom: '0.5rem', display: 'block' }}>
+                        {isDragging ? 'download' : 'cloud_upload'}
+                      </span>
+                      <p style={{ fontWeight: 500, marginBottom: '0.25rem' }}>
+                        {isDragging ? 'Drop files now' : 'Drag and drop files here or click to browse'}
+                      </p>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>Supported formats: JPG, PNG, PDF (Max 5MB)</p>
+                    </div>
+                  )}
+
+                  {!liveCaptureHidesUpload && files.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ alignSelf: 'flex-start' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add_photo_alternate</span>
+                      Add More Evidence
+                    </button>
+                  )}
 
                   {files.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
                       <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Selected Files ({files.length})</p>
-                      {files.map((file, i) => (
+                      {files.map((file, i) => {
+                        const previewUrl = filePreviewUrls[getFileKey(file, i)];
+                        return (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--surface-container-high)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: 'var(--primary)' }}>insert_drive_file</span>
+                            {previewUrl ? (
+                              <img src={previewUrl} alt={file.name} style={{ width: '3rem', height: '3rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.18)', flexShrink: 0 }} />
+                            ) : (
+                              <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: 'var(--primary)' }}>insert_drive_file</span>
+                            )}
                             <span style={{ fontSize: '0.8125rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
                             <span style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>({(file.size / 1024).toFixed(1)} KB)</span>
                           </div>
@@ -1048,7 +1318,8 @@ export default function NewGrievance() {
                             <span className="material-symbols-outlined" style={{ fontSize: '1.125rem' }}>close</span>
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1076,6 +1347,24 @@ export default function NewGrievance() {
                     <div>
                       <p className="form-label" style={{ marginBottom: '0.5rem' }}>Location</p>
                       <p>{form.location}</p>
+                    </div>
+                  )}
+                  {liveEvidence?.file && (
+                    <div style={{ padding: '1rem', background: 'rgba(14,165,164,0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(14,165,164,0.18)' }}>
+                      <p className="form-label" style={{ marginBottom: '0.5rem' }}>Live Geo-Tagged Evidence</p>
+                      <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
+                        {liveEvidence.previewUrl && (
+                          <img src={liveEvidence.previewUrl} alt="Live captured evidence" style={{ width: '6rem', height: '4.5rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.22)', flexShrink: 0 }} />
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{liveEvidence.file.name}</p>
+                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>
+                            {Number.isFinite(Number(liveEvidence.geoTag?.lat)) && Number.isFinite(Number(liveEvidence.geoTag?.lng))
+                              ? `GPS: ${Number(liveEvidence.geoTag.lat).toFixed(6)}, ${Number(liveEvidence.geoTag.lng).toFixed(6)}`
+                              : 'Photo captured, but GPS permission was denied. Please allow location or enter location manually.'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                   {aiClassification && (
@@ -1163,7 +1452,7 @@ export default function NewGrievance() {
               <div>
                 <h3 style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Classification</h3>
                 <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>
-                  {aiLoading ? 'Analyzing description...' : aiClassification ? 'Classification ready' : 'Waiting for input...'}
+                  {aiStatusText}
                 </p>
               </div>
             </div>
@@ -1182,26 +1471,33 @@ export default function NewGrievance() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Suggested Route</span>
                     <span style={{
-                      fontSize: '0.6875rem', fontWeight: 700, color: 'var(--secondary)',
-                      background: 'var(--secondary-container)', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)',
+                      display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                      fontSize: '0.6875rem', fontWeight: 700,
+                      color: aiNeedsReview ? '#7c3aed' : 'var(--secondary)',
+                      background: aiNeedsReview ? 'rgba(124,58,237,0.1)' : 'var(--secondary-container)',
+                      padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-full)',
                     }}>
-                      {(aiClassification.confidence || aiClassification.classification?.confidence || 0)}% Match
+                      {aiNeedsReview && <AlertTriangle size={12} />}
+                      {aiMatchLabel}
                     </span>
                   </div>
-                  <p style={{ fontSize: '1rem', fontWeight: 600 }}>{aiClassification.suggestedDepartment || aiClassification.classification?.suggestedDepartment || 'Analyzing...'}</p>
+                  <p style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    {aiNeedsReview && <AlertTriangle size={16} color="#f59e0b" />}
+                    {aiSuggestedRoute}
+                  </p>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
                   <div style={{ padding: '0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(197,197,211,0.1)' }}>
                     <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>Sentiment</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ fontSize: '0.8125rem', fontWeight: 600, textTransform: 'capitalize' }}>{aiClassification.sentiment || 'Neutral'}</span>
-                      {(aiClassification.isUrgent || aiClassification.priority === 'high') && <AlertCircle size={14} color="var(--error)" />}
+                      <span style={{ fontSize: '0.8125rem', fontWeight: 600, textTransform: 'capitalize' }}>{aiNeedsReview ? 'Needs Review' : (aiClassification.sentiment || 'Neutral')}</span>
+                      {aiNeedsReview ? <AlertTriangle size={14} color="#f59e0b" /> : (aiClassification.isUrgent || aiClassification.priority === 'high') && <AlertCircle size={14} color="var(--error)" />}
                     </div>
                   </div>
                   <div style={{ padding: '0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(197,197,211,0.1)' }}>
                     <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>Language</p>
-                    <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{aiClassification.detectedLanguage || 'Detecting...'}</p>
+                    <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{aiLanguageLabel}</p>
                   </div>
                 </div>
 
@@ -1225,7 +1521,7 @@ export default function NewGrievance() {
                   </div>
                 )}
 
-                {aiClassification.alternatives?.length > 0 && (
+                {!aiNeedsReview && aiClassification.alternatives?.length > 0 && (
                   <div style={{ marginBottom: '0.75rem' }}>
                     <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Other Possibilities</p>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -1240,7 +1536,9 @@ export default function NewGrievance() {
                   </div>
                 )}
                 <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', fontStyle: 'italic', paddingTop: '0.75rem', borderTop: '1px solid var(--surface-container)' }}>
-                  This classification helps speed up routing but will be reviewed by a human agent before final assignment.
+                  {aiNeedsReview
+                    ? 'Add a clear issue, location, and impact to improve classification.'
+                    : 'This classification helps speed up routing but will be reviewed by a human agent before final assignment.'}
                 </p>
               </div>
             ) : (

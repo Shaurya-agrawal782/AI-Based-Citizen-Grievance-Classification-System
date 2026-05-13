@@ -5,6 +5,7 @@ import TicketReceipt from '../components/citizen/TicketReceipt';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Search, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { cardReveal, heroReveal, pageRevealProps } from '../utils/pageMotion';
+import { useLanguage } from '../context/LanguageContext';
 
 const DEMO_TICKETS = {
   'CT-TKT-2026-0001': {
@@ -132,6 +133,7 @@ const DEMO_IDS = Object.keys(DEMO_TICKETS);
 
 export default function TrackTicket() {
   const [searchParams] = useSearchParams();
+  const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const [query, setQuery] = useState(searchParams.get('ticket') || '');
   const [searched, setSearched] = useState(!!searchParams.get('ticket'));
@@ -151,9 +153,9 @@ export default function TrackTicket() {
 
         <motion.div className="animate-page-hero" variants={heroReveal} {...pageRevealProps(shouldReduceMotion)} style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <div className="badge badge-ai" style={{ marginBottom: '1rem' }}>Transparent Ticket Status</div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.75rem', color: 'var(--on-surface)' }}>Track Your Ticket</h1>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.75rem', color: 'var(--on-surface)' }}>{t('ticket.title')}</h1>
           <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)' }}>
-            Enter your Ticket ID to see SLA, officer assignment, and current progress.
+            {t('ticket.subtitle')}
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center', marginTop: '1.5rem' }}>
             <span style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center' }}>Demo IDs:</span>
@@ -179,13 +181,13 @@ export default function TrackTicket() {
             <input
               className="form-input"
               type="text"
-              placeholder="Enter Ticket ID (e.g. CT-TKT-2026-0001)"
+              placeholder={t('ticket.searchPlaceholder')}
               value={query}
               onChange={e => setQuery(e.target.value)}
               style={{ paddingLeft: '3rem', paddingRight: '1rem', fontSize: '1.125rem', borderRadius: 'var(--radius-xl)', height: '3.5rem', boxShadow: 'var(--shadow-sm)' }}
             />
           </div>
-          <button type="submit" className="btn btn-primary civic-gradient-button premium-button-hover" style={{ borderRadius: 'var(--radius-xl)', padding: '0 2rem', fontWeight: 700 }}>Track</button>
+          <button type="submit" className="btn btn-primary civic-gradient-button premium-button-hover" style={{ borderRadius: 'var(--radius-xl)', padding: '0 2rem', fontWeight: 700 }}>{t('ticket.searchButton')}</button>
         </motion.form>
 
         <AnimatePresence mode="wait">
@@ -233,8 +235,8 @@ export default function TrackTicket() {
               <div style={{ width: '5rem', height: '5rem', borderRadius: '50%', background: 'var(--surface-container)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
                 <Search size={32} color="var(--outline)" />
               </div>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>No Ticket Found</h3>
-              <p style={{ color: 'var(--on-surface-variant)' }}>Please check your Ticket ID and try again. Demo IDs: {DEMO_IDS.join(', ')}</p>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>{t('ticket.notFound').split('.')[0]}</h3>
+              <p style={{ color: 'var(--on-surface-variant)' }}>{t('ticket.notFound')} Demo IDs: {DEMO_IDS.join(', ')}</p>
             </motion.div>
           )}
         </AnimatePresence>

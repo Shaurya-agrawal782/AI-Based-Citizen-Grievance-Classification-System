@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, AlertCircle, Globe, MessageSquare, ArrowLeft, Mail } from 'lucide-react';
+import { Sparkles, AlertCircle, Globe, MessageSquare, ArrowLeft, Mail, ExternalLink, Image as ImageIcon, MapPin, ShieldCheck } from 'lucide-react';
 import { grievanceAPI, aiAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import AIDecisionCard from '../components/admin/AIDecisionCard';
@@ -26,6 +26,217 @@ const getLocationCoordinates = (location) => {
 
 const formatLocationCoordinate = (value) => Number(value).toFixed(6);
 
+const API_ORIGIN = (import.meta.env.VITE_API_BASE || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+
+const resolveEvidenceImageUrl = (item) => {
+  const rawUrl = item?.url || item?.secureUrl || item?.path || '';
+  if (!rawUrl) return '';
+
+  const normalizedUrl = rawUrl.replace(/\\/g, '/');
+  if (/^https?:\/\//i.test(normalizedUrl)) return normalizedUrl;
+  if (normalizedUrl.startsWith('/')) return `${API_ORIGIN}${normalizedUrl}`;
+  return `${API_ORIGIN}/${normalizedUrl}`;
+};
+
+const isImageEvidence = (item) => {
+  const mimetype = item?.mimetype || item?.type || '';
+  const url = item?.url || item?.path || item?.originalName || item?.filename || '';
+  return mimetype.startsWith('image/') || /\.(avif|gif|jpe?g|png|webp)$/i.test(url);
+};
+
+const getEvidenceName = (item, fallback) => item?.originalName || item?.filename || fallback;
+
+function EvidenceImageGrid({ items, emptyText, tone = 'neutral' }) {
+  const images = (items || []).filter(item => isImageEvidence(item) && resolveEvidenceImageUrl(item));
+
+  if (images.length === 0) {
+    return (
+      <div style={{
+        minHeight: '8rem',
+        border: '1px dashed var(--outline-variant)',
+        borderRadius: 'var(--radius-md)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        padding: '1rem',
+        color: 'var(--on-surface-variant)',
+        background: 'var(--surface-container-lowest)'
+      }}>
+        <p style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{emptyText}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem' }}>
+      {images.map((item, index) => (
+        <a
+          key={`${resolveEvidenceImageUrl(item)}-${index}`}
+          href={resolveEvidenceImageUrl(item)}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: 'block',
+            borderRadius: 'var(--radius-md)',
+            overflow: 'hidden',
+            border: `1px solid ${tone === 'after' ? 'rgba(14,165,164,0.22)' : 'var(--outline-variant)'}`,
+            background: 'var(--surface-container-lowest)'
+          }}
+        >
+          <img
+            src={resolveEvidenceImageUrl(item)}
+            alt={getEvidenceName(item, tone === 'after' ? 'Resolution proof' : 'Citizen evidence')}
+            style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover' }}
+          />
+          <p style={{
+            fontSize: '0.6875rem',
+            fontWeight: 700,
+            color: 'var(--on-surface-variant)',
+            padding: '0.5rem',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}>
+            {getEvidenceName(item, tone === 'after' ? 'Resolution proof' : 'Citizen evidence')}
+          </p>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+const hasEvidenceCoordinates = (geoTag) => (
+  Number.isFinite(Number(geoTag?.lat)) && Number.isFinite(Number(geoTag?.lng))
+);
+
+const formatEvidenceCoordinate = (value) => (
+  Number.isFinite(Number(value)) ? Number(value).toFixed(6) : 'Not captured'
+);
+
+const formatEvidenceAccuracy = (value) => (
+  Number.isFinite(Number(value)) ? `${Math.round(Number(value))} m` : 'Not captured'
+);
+
+const formatEvidenceDate = (date) => {
+  if (!date) return 'Not captured';
+  return new Date(date).toLocaleDateString('en-IN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+function EvidenceMeta({ label, value }) {
+  return (
+    <div style={{
+      padding: '0.75rem',
+      background: 'var(--surface-container-lowest)',
+      borderRadius: 'var(--radius-sm)',
+      border: '1px solid rgba(197,197,211,0.25)',
+      minWidth: 0
+    }}>
+      <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{label}</p>
+      <p style={{ fontSize: '0.8125rem', fontWeight: 700, overflowWrap: 'anywhere' }}>{value}</p>
+    </div>
+  );
+}
+
+function GeoTaggedEvidencePanel({ evidenceImages = [] }) {
+  if (!evidenceImages.length) return null;
+
+  return (
+    <div className="card" style={{ padding: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <h3 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <MapPin size={18} color="var(--primary)" />
+          Geo-Tagged Evidence
+        </h3>
+        <span className="badge badge-ai">{evidenceImages.length} item{evidenceImages.length === 1 ? '' : 's'}</span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {evidenceImages.map((evidence, index) => {
+          const geoTag = evidence.geoTag || {};
+          const imageUrl = resolveEvidenceImageUrl(evidence);
+          const hasMapsLink = hasEvidenceCoordinates(geoTag);
+          const mapsUrl = hasMapsLink ? `https://www.google.com/maps?q=${geoTag.lat},${geoTag.lng}` : null;
+          const isLive = evidence.evidenceType === 'LIVE_GEO_TAGGED';
+
+          return (
+            <div key={evidence.publicId || `${imageUrl}-${index}`} style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+              gap: '1rem',
+              padding: '1rem',
+              background: 'var(--surface-container-low)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid rgba(197,197,211,0.2)'
+            }}>
+              <div style={{
+                borderRadius: 'var(--radius-md)',
+                overflow: 'hidden',
+                background: 'var(--surface-container-high)',
+                aspectRatio: '4 / 3',
+                border: '1px solid var(--outline-variant)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {isImageEvidence(evidence) && imageUrl ? (
+                  <img src={imageUrl} alt={`Evidence ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ textAlign: 'center', color: 'var(--on-surface-variant)', padding: '1rem' }}>
+                    <ImageIcon size={32} style={{ margin: '0 auto 0.5rem' }} />
+                    <p style={{ fontSize: '0.8125rem', fontWeight: 700 }}>{getEvidenceName(evidence, 'Evidence file')}</p>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', minWidth: 0 }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span className={isLive ? 'badge badge-resolved' : 'badge badge-ai'}>
+                    {isLive ? 'LIVE GEO-TAGGED' : 'UPLOAD'}
+                  </span>
+                  {evidence.verifiedLiveCapture && (
+                    <span className="badge badge-ai" style={{ gap: '0.35rem' }}>
+                      <ShieldCheck size={13} />
+                      Live capture verified
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
+                  <EvidenceMeta label="Latitude" value={formatEvidenceCoordinate(geoTag.lat)} />
+                  <EvidenceMeta label="Longitude" value={formatEvidenceCoordinate(geoTag.lng)} />
+                  <EvidenceMeta label="Accuracy" value={formatEvidenceAccuracy(geoTag.accuracy)} />
+                  <EvidenceMeta label="Captured Time" value={formatEvidenceDate(geoTag.capturedAt)} />
+                </div>
+
+                {(geoTag.landmark || geoTag.address) && (
+                  <div style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
+                    {geoTag.landmark && <p><strong style={{ color: 'var(--on-surface)' }}>Landmark:</strong> {geoTag.landmark}</p>}
+                    {geoTag.address && <p><strong style={{ color: 'var(--on-surface)' }}>Address:</strong> {geoTag.address}</p>}
+                  </div>
+                )}
+
+                {mapsUrl && (
+                  <a href={mapsUrl} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }}>
+                    <ExternalLink size={15} />
+                    Open in Maps
+                  </a>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function GrievanceDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -36,6 +247,11 @@ export default function GrievanceDetail() {
   const [aiDraft, setAiDraft] = useState('');
   const [draftLoading, setDraftLoading] = useState(false);
   const [note, setNote] = useState('');
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [resolutionFiles, setResolutionFiles] = useState([]);
+  const [proofUploading, setProofUploading] = useState(false);
+  const [proofMessage, setProofMessage] = useState('');
+  const [proofError, setProofError] = useState('');
 
   useEffect(() => {
     loadGrievance();
@@ -109,6 +325,44 @@ export default function GrievanceDetail() {
       console.error('Reopen failed:', err);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleResolutionFileSelect = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    setResolutionFiles(prev => [...prev, ...selectedFiles]);
+    event.target.value = '';
+  };
+
+  const removeResolutionFile = (index) => {
+    setResolutionFiles(prev => prev.filter((_, fileIndex) => fileIndex !== index));
+  };
+
+  const handleResolutionProofSubmit = async (event) => {
+    event.preventDefault();
+    setProofMessage('');
+    setProofError('');
+
+    if (!resolutionNote.trim() && resolutionFiles.length === 0) {
+      setProofError('Add a resolution note or at least one after-repair image.');
+      return;
+    }
+
+    const formData = new FormData();
+    if (resolutionNote.trim()) formData.append('note', resolutionNote.trim());
+    resolutionFiles.forEach(file => formData.append('images', file));
+
+    setProofUploading(true);
+    try {
+      await grievanceAPI.uploadResolutionProof(id, formData);
+      setResolutionNote('');
+      setResolutionFiles([]);
+      setProofMessage('Resolution proof uploaded for citizen review.');
+      await loadGrievance();
+    } catch (err) {
+      setProofError(err.response?.data?.error || 'Resolution proof upload failed.');
+    } finally {
+      setProofUploading(false);
     }
   };
 
@@ -252,40 +506,181 @@ export default function GrievanceDetail() {
                     <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{grievance.citizenEmail}</p>
                   </div>
                   <div>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>Location Details</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Location Details</p>
                     {hasLocationDetails ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        {grievance.location?.landmark && (
-                          <p style={{ fontWeight: 700 }}>{grievance.location.landmark}</p>
-                        )}
-                        {grievance.location?.address && (
-                          <p style={{ fontWeight: grievance.location?.landmark ? 500 : 600 }}>{grievance.location.address}</p>
-                        )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                        {/* Confirmed Location */}
+                        <div style={{ padding: '0.625rem 0.75rem', background: 'rgba(14,165,164,0.06)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.18)' }}>
+                          <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--primary)', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>Confirmed Location</p>
+                          {grievance.location?.landmark && (
+                            <p style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.15rem' }}>{grievance.location.landmark}</p>
+                          )}
+                          {(grievance.location?.finalAddress || grievance.location?.address) && (
+                            <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface)', marginBottom: '0.15rem' }}>
+                              {grievance.location.finalAddress || grievance.location.address}
+                            </p>
+                          )}
+                          {grievance.location?.pincode && (
+                            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>Pincode: <strong>{grievance.location.pincode}</strong></p>
+                          )}
+                          {(grievance.location?.ward || grievance.location?.zone) && (
+                            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.15rem' }}>
+                              {grievance.location.ward && `Ward: ${grievance.location.ward}`}
+                              {grievance.location.ward && grievance.location.zone && ' \xb7 '}
+                              {grievance.location.zone && `Zone: ${grievance.location.zone}`}
+                            </p>
+                          )}
+                          {grievance.location?.confirmedByUser && (
+                            <span style={{ fontSize: '0.625rem', fontWeight: 700, color: 'var(--primary)', background: 'rgba(14,165,164,0.12)', padding: '0.1rem 0.4rem', borderRadius: '99px', display: 'inline-block', marginTop: '0.3rem' }}>Citizen Confirmed</span>
+                          )}
+                        </div>
+                        {/* GPS Evidence */}
                         {locationCoordinates.lat !== null && locationCoordinates.lng !== null && (
-                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-                            Lat: {formatLocationCoordinate(locationCoordinates.lat)}, Lng: {formatLocationCoordinate(locationCoordinates.lng)}
-                          </p>
+                          <div style={{ padding: '0.625rem 0.75rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--outline-variant)' }}>
+                            <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>GPS Evidence</p>
+                            <p style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--on-surface)', lineHeight: 1.7 }}>
+                              Lat: {formatLocationCoordinate(locationCoordinates.lat)}<br />
+                              Lng: {formatLocationCoordinate(locationCoordinates.lng)}
+                            </p>
+                            {grievance.location?.accuracy !== undefined && grievance.location?.accuracy !== null && (
+                              <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '0.15rem' }}>
+                                Accuracy: {Math.round(Number(grievance.location.accuracy))}m
+                                {grievance.location.source && ` \xb7 Source: ${grievance.location.source}`}
+                              </p>
+                            )}
+                          </div>
                         )}
-                        {grievance.location?.accuracy !== undefined && grievance.location?.accuracy !== null && (
-                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-                            Accuracy: {Math.round(Number(grievance.location.accuracy))}m
-                          </p>
+                        {/* Suggested Address (geocoder) */}
+                        {grievance.location?.suggestedAddress && (
+                          <div style={{ padding: '0.625rem 0.75rem', background: 'rgba(239,153,0,0.05)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(239,153,0,0.18)' }}>
+                            <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: '#9a5f00', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>Suggested Address (Geocoder)</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, fontStyle: 'italic' }}>{grievance.location.suggestedAddress}</p>
+                          </div>
                         )}
                       </div>
                     ) : (
                       <p style={{ fontWeight: 600 }}>Not specified</p>
                     )}
-                    <div style={{ display: 'none' }}>
-                    <p style={{ fontWeight: 600 }}>{grievance.location?.address || 'Not specified'}</p>
-                    {grievance.location?.coordinates?.lat ? (
-                      <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-                        {grievance.location.coordinates.lat.toFixed(4)}° N, {grievance.location.coordinates.lng.toFixed(4)}° W
-                      </p>
-                    ) : null}
-                    </div>
                   </div>
                 </div>
               </div>
+
+              <GeoTaggedEvidencePanel evidenceImages={grievance.evidenceImages || []} />
+
+              {/* Before / After Evidence */}
+              <div className="card" style={{ padding: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.25rem' }}>Before / After Evidence</h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+                      Citizen evidence and officer proof in one review trail.
+                    </p>
+                  </div>
+                  {grievance.resolutionProof?.uploadedAt && (
+                    <span className="badge badge-resolved">Proof uploaded</span>
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+                  <div>
+                    <p className="form-label" style={{ marginBottom: '0.75rem' }}>Citizen Evidence Images</p>
+                    <EvidenceImageGrid
+                      items={grievance.attachments}
+                      emptyText="No citizen evidence images attached."
+                    />
+                  </div>
+                  <div>
+                    <p className="form-label" style={{ marginBottom: '0.75rem' }}>Officer Resolution Proof Images</p>
+                    <EvidenceImageGrid
+                      items={grievance.resolutionProof?.images}
+                      emptyText="No resolution proof images uploaded yet."
+                      tone="after"
+                    />
+                  </div>
+                </div>
+                {grievance.resolutionProof?.note && (
+                  <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(14,165,164,0.06)', border: '1px solid rgba(14,165,164,0.16)', borderRadius: 'var(--radius-md)' }}>
+                    <p className="form-label" style={{ marginBottom: '0.35rem' }}>Resolution Note</p>
+                    <p style={{ fontSize: '0.9375rem', lineHeight: 1.6 }}>{grievance.resolutionProof.note}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Resolution Proof */}
+              <form className="card" style={{ padding: '2rem' }} onSubmit={handleResolutionProofSubmit}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.25rem' }}>Upload Resolution Proof</h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
+                      Add after-repair photos and a short note for the citizen.
+                    </p>
+                  </div>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--ai-teal)' }}>verified</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">Resolution Note</label>
+                    <textarea
+                      className="form-textarea"
+                      rows={4}
+                      value={resolutionNote}
+                      onChange={e => setResolutionNote(e.target.value)}
+                      placeholder="Describe the repair or action completed..."
+                    />
+                  </div>
+                  <div
+                    className="upload-zone"
+                    onClick={() => document.getElementById('resolutionProofInput').click()}
+                    style={{ padding: '1.5rem' }}
+                  >
+                    <input
+                      id="resolutionProofInput"
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleResolutionFileSelect}
+                      style={{ display: 'none' }}
+                    />
+                    <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: 'var(--ai-teal)', marginBottom: '0.35rem', display: 'block' }}>add_photo_alternate</span>
+                    <p style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Upload after-repair images</p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>JPG, PNG, WEBP up to 5MB each</p>
+                  </div>
+                  {resolutionFiles.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <p className="form-label">Selected Images ({resolutionFiles.length})</p>
+                      {resolutionFiles.map((file, index) => (
+                        <div key={`${file.name}-${index}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', padding: '0.625rem 0.75rem', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--outline-variant)' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: '0.875rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)' }}>{(file.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeResolutionFile(index)}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>close</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {proofError && (
+                    <div style={{ padding: '0.875rem 1rem', background: 'var(--error-container)', color: 'var(--on-error-container)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: 600 }}>
+                      {proofError}
+                    </div>
+                  )}
+                  {proofMessage && (
+                    <div style={{ padding: '0.875rem 1rem', background: 'rgba(14,165,164,0.08)', color: 'var(--primary)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: 700 }}>
+                      {proofMessage}
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={proofUploading}
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    {proofUploading ? <span className="spinner" style={{ width: '1rem', height: '1rem', borderWidth: '2px' }} /> : <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>cloud_upload</span>}
+                    Submit Proof
+                  </button>
+                </div>
+              </form>
 
               {/* Timeline */}
               {grievance.timeline?.length > 0 && (
@@ -491,7 +886,14 @@ export default function GrievanceDetail() {
               {/* Feedback */}
               {grievance.feedback?.rating && (
                 <div className="card-flat" style={{ padding: '1.25rem', borderRadius: 'var(--radius-xl)' }}>
-                  <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Citizen Feedback</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>Citizen Feedback</p>
+                    {grievance.feedback.satisfied !== undefined && (
+                      <span className={`badge ${grievance.feedback.satisfied ? 'badge-resolved' : 'badge-reopened'}`}>
+                        {grievance.feedback.satisfied ? 'Satisfied' : 'Not satisfied'}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.5rem' }}>
                     {[1, 2, 3, 4, 5].map(star => (
                       <span key={star} className="material-symbols-outlined filled" style={{

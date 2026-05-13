@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSwitcher from './common/LanguageSwitcher';
 
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
+  const { t } = useLanguage();
   const location = useLocation();
 
   const citizenLinks = [
-    { path: '/dashboard', label: 'Dashboard' },
-    { path: '/grievance/new', label: 'File Grievance' },
-    { path: '/track', label: 'Track Complaint' },
+    { path: '/dashboard', label: t('nav.dashboard') },
+    { path: '/grievance/new', label: t('nav.fileGrievance') },
+    { path: '/track', label: t('nav.trackComplaint') },
   ];
 
   const adminLinks = [
-    { path: '/admin', label: 'Dashboard' },
-    { path: '/admin/analytics', label: 'Analytics' },
+    { path: '/admin', label: t('nav.dashboard') },
+    { path: '/admin/analytics', label: t('nav.analytics') },
   ];
 
   const links = isAdmin ? adminLinks : citizenLinks;
@@ -73,40 +76,40 @@ export default function Navbar() {
               style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--on-surface)', borderRadius: 'var(--radius-full)' }}
               onClick={() => setShowSmartTools(!showSmartTools)}
             >
-              Smart Tools <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>expand_more</span>
+              {t('nav.smartTools')} <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>expand_more</span>
             </button>
             {showSmartTools && (
               <div className="nav-dropdown nav-dropdown-enter" style={{ position: 'absolute', top: '100%', left: '0', minWidth: '260px', background: 'rgba(255,255,255,0.96)', borderRadius: 'var(--radius-xl)', padding: '0.5rem', boxShadow: 'var(--shadow-xl)', border: '1px solid rgba(226,232,240,0.78)', zIndex: 1000, marginTop: '0.5rem', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
-                <p style={{ padding: '0.5rem 0.75rem 0.25rem', fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Reporting Tools</p>
+                <p style={{ padding: '0.5rem 0.75rem 0.25rem', fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>{t('nav.reportingTools')}</p>
                 <Link to="/qr-zones" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--primary)' }}>qr_code_scanner</span>
-                  QR Zones
+                  {t('nav.qrZones')}
                 </Link>
                 <Link to="/copilot" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: '#10b981' }}>smart_toy</span>
-                  CivicDraft AI
+                  {t('nav.civicDraft')}
                 </Link>
                 <Link to="/track-ticket" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--secondary)' }}>confirmation_number</span>
-                  Track Ticket
+                  {t('nav.trackTicket')}
                 </Link>
                 <Link to="/omni-access" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: 'var(--primary)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem', color: 'var(--ai-teal)' }}>hub</span>
-                  OmniAccess
+                  {t('nav.omniAccess')}
                 </Link>
                 <div style={{ height: '1px', background: 'var(--surface-container)', margin: '0.5rem 0' }} />
-                <p style={{ padding: '0.25rem 0.75rem', fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>Demo Channels</p>
+                <p style={{ padding: '0.25rem 0.75rem', fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--on-surface-variant)' }}>{t('nav.demoChannels')}</p>
                 <Link to="/whatsapp-demo" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: '#128c7e' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>chat</span>
-                  WhatsApp Demo
+                  {t('nav.whatsappDemo')}
                 </Link>
                 <Link to="/ivr-demo" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: '#c2410c' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>call</span>
-                  IVR Demo
+                  {t('nav.ivrDemo')}
                 </Link>
                 <Link to="/demo-mode" className="nav-dropdown-item nav-item-hover" style={{ gap: '0.5rem', padding: '0.75rem', borderRadius: 'var(--radius-sm)', color: 'var(--ai-teal)' }} onClick={() => setShowSmartTools(false)}>
                   <span className="material-symbols-outlined nav-icon" style={{ fontSize: '1.125rem' }}>play_circle</span>
-                  Demo Mode
+                  {t('nav.demoMode')}
                 </Link>
               </div>
             )}
@@ -116,18 +119,21 @@ export default function Navbar() {
         <div className="navbar-actions">
           <div className="navbar-search" style={{ maxWidth: '200px' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '1.125rem', color: 'var(--outline)' }}>search</span>
-            <input type="text" placeholder="Search ID..." style={{ fontSize: '0.875rem' }} />
+            <input type="text" placeholder={t('common.search') + ' ID...'} style={{ fontSize: '0.875rem' }} />
           </div>
+
+          {/* Language Switcher */}
+          <LanguageSwitcher />
 
           {/* Notifications */}
           <div style={{ position: 'relative' }}>
-            <button className="btn-icon btn-ghost" title="Notifications" onClick={toggleNotifs}>
+            <button className="btn-icon btn-ghost" title={t('common.notifications')} onClick={toggleNotifs}>
               <span className="material-symbols-outlined">notifications</span>
               {notifCount > 0 && <span className="notif-badge">{notifCount}</span>}
             </button>
             {showNotifications && (
               <div className="nav-dropdown animate-fade-in" style={{ width: '300px' }}>
-                <h4 style={{ margin: '0.5rem 1rem 1rem' }}>Notifications</h4>
+                <h4 style={{ margin: '0.5rem 1rem 1rem' }}>{t('common.notifications')}</h4>
                 {[
                   { text: 'Complaint #GRV-1024 updated to In-Progress', time: '5m ago', type: 'info' },
                   { text: 'New department assigned: Water Authority', time: '1h ago', type: 'success' },
@@ -138,29 +144,29 @@ export default function Navbar() {
                     <span style={{ fontSize: '0.6875rem', color: 'var(--outline)' }}>{n.time}</span>
                   </div>
                 ))}
-                <button className="btn-ghost" style={{ width: '100%', borderTop: '1px solid var(--surface-container)', borderRadius: 0, padding: '0.75rem' }} onClick={() => setNotifCount(0)}>Clear All</button>
+                <button className="btn-ghost" style={{ width: '100%', borderTop: '1px solid var(--surface-container)', borderRadius: 0, padding: '0.75rem' }} onClick={() => setNotifCount(0)}>{t('common.clearAll')}</button>
               </div>
             )}
           </div>
 
           {/* Help */}
           <div style={{ position: 'relative' }}>
-            <button className="btn-icon btn-ghost" title="Help" onClick={toggleHelp}>
+            <button className="btn-icon btn-ghost" title={t('common.help')} onClick={toggleHelp}>
               <span className="material-symbols-outlined">help_outline</span>
             </button>
             {showHelp && (
               <div className="nav-dropdown animate-fade-in">
                 <div className="nav-dropdown-item" style={{ gap: '0.75rem' }}>
                   <span className="material-symbols-outlined">support_agent</span>
-                  <span>Live Support</span>
+                  <span>{t('common.liveSupport')}</span>
                 </div>
                 <div className="nav-dropdown-item" style={{ gap: '0.75rem' }}>
                   <span className="material-symbols-outlined">description</span>
-                  <span>User Guide</span>
+                  <span>{t('common.userGuide')}</span>
                 </div>
                 <div className="nav-dropdown-item" style={{ gap: '0.75rem' }}>
                   <span className="material-symbols-outlined">feedback</span>
-                  <span>System Feedback</span>
+                  <span>{t('common.systemFeedback')}</span>
                 </div>
               </div>
             )}
@@ -186,15 +192,15 @@ export default function Navbar() {
                   </div>
                   <button className="nav-dropdown-item" style={{ width: '100%', gap: '0.75rem' }}>
                     <span className="material-symbols-outlined">person</span>
-                    <span>Profile Settings</span>
+                    <span>{t('common.profileSettings')}</span>
                   </button>
                   <button
                     onClick={logout}
                     className="nav-dropdown-item"
                     style={{ width: '100%', gap: '0.75rem', color: 'var(--error)' }}
                   >
-                    <span className="material-symbols-outlined">logout</span>
-                    <span>Logout</span>
+                    <span className="material-symbols-outlined">{t('common.logout')}</span>
+                    <span>{t('common.logout')}</span>
                   </button>
                 </div>
               )}

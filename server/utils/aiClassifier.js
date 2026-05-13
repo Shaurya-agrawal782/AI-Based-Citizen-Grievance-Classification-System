@@ -3,36 +3,47 @@
  * Simulated NLP-based classification engine that maps grievance descriptions
  * to government departments with confidence scores.
  */
+const { evaluateComplaintTextQuality } = require('../services/ai/inputQuality');
 
 const departmentKeywords = {
   'Public Works': {
-    keywords: ['pothole', 'road', 'bridge', 'footpath', 'sidewalk', 'pavement', 'crack', 'broken road',
+    category: 'Public Infrastructure',
+    keywords: ['road', 'sadak', 'pothole', 'gaddha', 'bridge', 'footpath', 'traffic', 'waterlogging', 'broken road',
+               'sidewalk', 'pavement', 'crack',
                'street damage', 'construction', 'infrastructure', 'highway', 'lane', 'asphalt',
                'traffic signal', 'sign', 'barricade', 'railing', 'overpass', 'underpass'],
     weight: 1.0
   },
   'Sanitation': {
-    keywords: ['garbage', 'waste', 'trash', 'dirty', 'smell', 'odor', 'dump', 'sewage', 'drain',
+    category: 'Sanitation & Waste',
+    keywords: ['kachra', 'garbage', 'waste', 'gandagi', 'drain', 'nala', 'sewage', 'cleaning',
+               'trash', 'dirty', 'smell', 'odor', 'dump',
                'blocked drain', 'overflow', 'sanitation', 'cleaning', 'sweeping', 'litter',
-               'dustbin', 'compost', 'recycling', 'stagnant', 'mosquito', 'pest', 'rat'],
+               'dustbin', 'compost', 'recycling', 'stagnant', 'mosquito', 'pest'],
     weight: 1.0
   },
   'Water Authority': {
-    keywords: ['water', 'leak', 'leakage', 'pipeline', 'pipe', 'supply', 'no water', 'water pressure',
+    category: 'Water Supply',
+    keywords: ['pani', 'water', 'pipeline', 'tap', 'leakage', 'contaminated', 'dirty water', 'supply',
+               'leak', 'pipe', 'no water', 'water pressure',
                'contaminated', 'dirty water', 'bore', 'well', 'tank', 'water tank', 'flooding',
-               'waterlogging', 'tap', 'meter', 'billing', 'sewage water'],
+               'tap', 'meter', 'billing', 'sewage water'],
     weight: 1.0
   },
   'Electricity Board': {
-    keywords: ['electricity', 'power', 'outage', 'blackout', 'streetlight', 'light', 'wire', 'cable',
-               'transformer', 'pole', 'electric', 'shock', 'voltage', 'meter', 'billing',
+    category: 'Electricity',
+    keywords: ['bijli', 'electricity', 'power', 'wire', 'pole', 'spark', 'current', 'transformer', 'light',
+               'outage', 'blackout', 'streetlight', 'cable',
+               'electric', 'shock', 'voltage', 'meter', 'billing',
                'exposed wire', 'short circuit', 'sparking', 'generator', 'solar'],
     weight: 1.0
   },
   'Municipal Safety': {
-    keywords: ['safety', 'manhole', 'open manhole', 'hazard', 'danger', 'accident', 'fall', 'injury',
+    category: 'Public Safety',
+    keywords: ['fire', 'accident', 'danger', 'injury', 'collapse', 'open manhole', 'school', 'hospital', 'emergency',
+               'safety', 'manhole', 'hazard', 'fall',
                'unsafe', 'risk', 'fire', 'collapse', 'building', 'illegal', 'encroachment',
-               'stray', 'dog', 'animal', 'crime', 'theft', 'security', 'cctv', 'camera']
+               'crime', 'theft', 'security', 'cctv', 'camera']
   }
 };
 
@@ -48,6 +59,12 @@ const priorityKeywords = {
 
 function classifyGrievance(title, description) {
   const text = `${title} ${description}`.toLowerCase();
+  const inputQuality = evaluateComplaintTextQuality(text);
+
+  if (!inputQuality.isMeaningful) {
+    return buildManualReviewResult(title, description, inputQuality, 20);
+  }
+
   const scores = {};
   
   // Calculate department scores
@@ -73,21 +90,13 @@ function classifyGrievance(title, description) {
   const totalScore = Object.values(scores).reduce((sum, s) => sum + s.score, 0);
   
   if (totalScore === 0) {
-    // Default classification with low confidence
-    return {
-      suggestedDepartment: 'Public Works',
-      confidence: 25,
-      alternatives: [
-        { department: 'Sanitation', confidence: 20 },
-        { department: 'Municipal Safety', confidence: 15 }
-      ],
-      summary: generateSummary(title, description, 'Public Works')
-    };
+    return buildManualReviewResult(title, description, inputQuality, 25);
   }
   
-  // Calculate confidence for each department
+  // Calculate confidence for each department. A single weak keyword stays in
+  // medium confidence so routing still receives human review.
   for (const dept of Object.keys(scores)) {
-    scores[dept].confidence = Math.round((scores[dept].score / totalScore) * 100);
+    scores[dept].confidence = scoreToConfidence(scores[dept].score, totalScore);
   }
   
   // Sort by confidence
@@ -102,11 +111,68 @@ function classifyGrievance(title, description) {
       confidence: data.confidence
     }));
   
+  const confidence = Math.min(primary[1].confidence, 97);
+  const policy = confidencePolicy(confidence);
+
+  if (policy.confidenceBand === 'Low') {
+    return buildManualReviewResult(title, description, inputQuality, confidence);
+  }
+
   return {
     suggestedDepartment: primary[0],
-    confidence: Math.min(primary[1].confidence, 97),
+    category: departmentKeywords[primary[0]].category,
+    confidence,
+    confidenceBand: policy.confidenceBand,
+    requiresHumanReview: policy.requiresHumanReview,
     alternatives,
+    message: policy.message,
+    inputQuality,
     summary: generateSummary(title, description, primary[0])
+  };
+}
+
+function scoreToConfidence(departmentScore, totalScore) {
+  if (departmentScore <= 0) return 0;
+  const share = totalScore > 0 ? departmentScore / totalScore : 0;
+  const confidence = 35 + (departmentScore * 18) + (share * 22);
+  return Math.round(Math.min(confidence, 97));
+}
+
+function confidencePolicy(confidence) {
+  if (confidence < 40) {
+    return {
+      confidenceBand: 'Low',
+      requiresHumanReview: true,
+      message: 'Please add more details for accurate classification.'
+    };
+  }
+
+  if (confidence < 65) {
+    return {
+      confidenceBand: 'Medium',
+      requiresHumanReview: true,
+      message: 'This complaint may need human review before final routing.'
+    };
+  }
+
+  return {
+    confidenceBand: 'High',
+    requiresHumanReview: false,
+    message: ''
+  };
+}
+
+function buildManualReviewResult(title, description, inputQuality, confidence = 20) {
+  return {
+    suggestedDepartment: 'Manual Review Desk',
+    category: 'Other',
+    confidence: Math.max(0, Math.min(Math.round(confidence), 39)),
+    confidenceBand: 'Low',
+    requiresHumanReview: true,
+    alternatives: [],
+    message: 'Please add more details for accurate classification.',
+    inputQuality,
+    summary: generateSummary(title, description, 'Manual Review Desk')
   };
 }
 

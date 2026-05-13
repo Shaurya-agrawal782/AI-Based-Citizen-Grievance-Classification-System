@@ -67,12 +67,22 @@ const analyzeGrievanceIntelligently = async (input) => {
       classificationConfidence: classification.confidence,
       languageConfidence: languageResult.confidence,
       urgencyScore: urgencyResult.urgencyScore,
-      category: classification.category
+      category: classification.category,
+      department: classification.department
     });
+
+    const effectiveClassification = {
+      ...classification,
+      category: confidenceResult.category || classification.category,
+      department: confidenceResult.department || classification.department,
+      confidenceBand: confidenceResult.confidenceBand,
+      requiresHumanReview: confidenceResult.requiresHumanReview,
+      message: confidenceResult.message || classification.message
+    };
 
     // 6. Route to department/authority
     const routingResult = await routeComplaint({
-      category: classification.category,
+      category: effectiveClassification.category,
       priority: urgencyResult.priority,
       location,
       locationContext,
@@ -82,7 +92,7 @@ const analyzeGrievanceIntelligently = async (input) => {
     // 7. Generate explanation/reasoning
     const explanationResult = await generateExplanation({
       language: languageResult,
-      classification: classification,
+      classification: effectiveClassification,
       urgency: urgencyResult,
       routing: routingResult,
       confidence: confidenceResult
@@ -92,7 +102,7 @@ const analyzeGrievanceIntelligently = async (input) => {
     return {
       language: languageResult.language,
       translatedText: languageResult.translatedText,
-      category: classification.category,
+      category: effectiveClassification.category,
       department: routingResult.department,
       priority: urgencyResult.priority,
       severityLevel: urgencyResult.severityLevel,
@@ -102,6 +112,8 @@ const analyzeGrievanceIntelligently = async (input) => {
       sla, // New SLA object
       requiresHumanReview: confidenceResult.requiresHumanReview,
       routing: routingResult,
+      inputQuality: classification.inputQuality,
+      message: effectiveClassification.message,
       duplicateCheck,
       reasoning: explanationResult.reasoning,
       suggestedAction: explanationResult.suggestedAction,

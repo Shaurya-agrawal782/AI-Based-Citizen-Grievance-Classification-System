@@ -24,12 +24,12 @@ const grievanceSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Public Infrastructure', 'Sanitation & Waste', 'Water Supply', 'Electricity', 'Public Safety'],
+    enum: ['Public Infrastructure', 'Sanitation & Waste', 'Water Supply', 'Electricity', 'Public Safety', 'Other'],
     required: true
   },
   department: {
     type: String,
-    enum: ['Public Works', 'Sanitation', 'Water Authority', 'Electricity Board', 'Municipal Safety'],
+    enum: ['Public Works', 'Sanitation', 'Water Authority', 'Electricity Board', 'Municipal Safety', 'Manual Review Desk'],
     default: null
   },
   priority: {
@@ -63,6 +63,13 @@ const grievanceSchema = new mongoose.Schema({
       enum: ['GPS', 'QR', 'Manual', 'IP'],
       default: 'Manual'
     },
+    // Part F: Geocoder suggestion vs citizen-confirmed data
+    suggestedAddress: String,   // Raw reverse-geocoded address (may carry wrong pincode)
+    finalAddress: String,       // Citizen-confirmed composite address
+    confirmedByUser: {
+      type: Boolean,
+      default: false
+    },
     detectedAt: Date
   },
   locationSource: {
@@ -78,6 +85,55 @@ const grievanceSchema = new mongoose.Schema({
     path: String,
     mimetype: String
   }],
+  evidenceImages: [{
+    url: String,
+    publicId: String,
+    originalName: String,
+    format: String,
+    bytes: Number,
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    },
+    evidenceType: {
+      type: String,
+      enum: ['LIVE_GEO_TAGGED', 'UPLOAD'],
+      default: 'UPLOAD'
+    },
+    geoTag: {
+      lat: Number,
+      lng: Number,
+      accuracy: Number,
+      capturedAt: Date,
+      source: {
+        type: String,
+        default: 'GPS'
+      },
+      landmark: String,
+      address: String
+    },
+    verifiedLiveCapture: {
+      type: Boolean,
+      default: false
+    }
+  }],
+  resolutionProof: {
+    images: [{
+      url: String,
+      publicId: String,
+      originalName: String,
+      uploadedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    note: String,
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    uploadedAt: Date
+  },
   citizen: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -92,8 +148,12 @@ const grievanceSchema = new mongoose.Schema({
     default: null
   },
   aiClassification: {
+    category: String,
     suggestedDepartment: String,
     confidence: Number,
+    confidenceBand: String,
+    requiresHumanReview: Boolean,
+    message: String,
     alternatives: [{
       department: String,
       confidence: Number
@@ -116,6 +176,7 @@ const grievanceSchema = new mongoose.Schema({
   },
   feedback: {
     rating: { type: Number, min: 1, max: 5 },
+    satisfied: Boolean,
     comment: String,
     submittedAt: Date
   },
