@@ -65,6 +65,7 @@ const grievanceSchema = new mongoose.Schema({
     },
     // Part F: Geocoder suggestion vs citizen-confirmed data
     suggestedAddress: String,   // Raw reverse-geocoded address (may carry wrong pincode)
+    displayAddress: String,     // Cleaned address used in citizen-facing previews
     finalAddress: String,       // Citizen-confirmed composite address
     confirmedByUser: {
       type: Boolean,

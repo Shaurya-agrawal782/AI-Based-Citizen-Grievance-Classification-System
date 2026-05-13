@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, AlertCircle } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 const languages = [
   { code: 'hi-IN', label: 'Hindi' },
@@ -13,6 +14,7 @@ const languages = [
 ];
 
 export default function VoiceComplaintInput({ value, onChange, language = 'hi-IN', onLanguageChange }) {
+  const { t } = useLanguage();
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState('');
   const [transcript, setTranscript] = useState('');

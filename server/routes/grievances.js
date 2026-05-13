@@ -324,6 +324,9 @@ router.post('/', auth, parseGrievanceUpload, async (req, res) => {
       if (detectedLocation.suggestedAddress) {
         locationObject.suggestedAddress = cleanString(detectedLocation.suggestedAddress);
       }
+      if (detectedLocation.displayAddress) {
+        locationObject.displayAddress = cleanString(detectedLocation.displayAddress);
+      }
       if (detectedLocation.finalAddress) {
         locationObject.finalAddress = cleanString(detectedLocation.finalAddress);
       }

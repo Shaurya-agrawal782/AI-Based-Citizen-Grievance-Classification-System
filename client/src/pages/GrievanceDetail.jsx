@@ -9,6 +9,7 @@ import AuditTrailCard from '../components/admin/AuditTrailCard';
 import CaseHistoryTimeline from '../components/common/CaseHistoryTimeline';
 import OfficerCopilot from '../components/admin/OfficerCopilot';
 import WorkloadBalancerCard from '../components/admin/WorkloadBalancerCard';
+import { useLanguage } from '../context/LanguageContext';
 
 const statusLabels = {
   'submitted': 'Submitted', 'in-review': 'In Review', 'in-progress': 'In Progress',
@@ -238,6 +239,7 @@ function GeoTaggedEvidencePanel({ evidenceImages = [] }) {
 }
 
 export default function GrievanceDetail() {
+  const { t } = useLanguage();
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -405,9 +407,14 @@ export default function GrievanceDetail() {
   }
 
   const locationCoordinates = getLocationCoordinates(grievance.location);
+  const confirmedLocation = grievance.location?.finalAddress || [
+    grievance.location?.landmark,
+    grievance.location?.displayAddress || grievance.location?.address,
+  ].filter(Boolean).join(', ');
+  const mapSuggestedAddress = grievance.location?.suggestedAddress || '';
   const hasLocationDetails = Boolean(
-    grievance.location?.landmark ||
-    grievance.location?.address ||
+    confirmedLocation ||
+    mapSuggestedAddress ||
     (locationCoordinates.lat !== null && locationCoordinates.lng !== null)
   );
 
@@ -512,12 +519,9 @@ export default function GrievanceDetail() {
                         {/* Confirmed Location */}
                         <div style={{ padding: '0.625rem 0.75rem', background: 'rgba(14,165,164,0.06)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.18)' }}>
                           <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--primary)', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>Confirmed Location</p>
-                          {grievance.location?.landmark && (
-                            <p style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.15rem' }}>{grievance.location.landmark}</p>
-                          )}
-                          {(grievance.location?.finalAddress || grievance.location?.address) && (
+                          {confirmedLocation && (
                             <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface)', marginBottom: '0.15rem' }}>
-                              {grievance.location.finalAddress || grievance.location.address}
+                              {confirmedLocation}
                             </p>
                           )}
                           {grievance.location?.pincode && (
@@ -534,10 +538,10 @@ export default function GrievanceDetail() {
                             <span style={{ fontSize: '0.625rem', fontWeight: 700, color: 'var(--primary)', background: 'rgba(14,165,164,0.12)', padding: '0.1rem 0.4rem', borderRadius: '99px', display: 'inline-block', marginTop: '0.3rem' }}>Citizen Confirmed</span>
                           )}
                         </div>
-                        {/* GPS Evidence */}
+                        {/* GPS */}
                         {locationCoordinates.lat !== null && locationCoordinates.lng !== null && (
                           <div style={{ padding: '0.625rem 0.75rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--outline-variant)' }}>
-                            <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>GPS Evidence</p>
+                            <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>GPS</p>
                             <p style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--on-surface)', lineHeight: 1.7 }}>
                               Lat: {formatLocationCoordinate(locationCoordinates.lat)}<br />
                               Lng: {formatLocationCoordinate(locationCoordinates.lng)}
@@ -550,11 +554,11 @@ export default function GrievanceDetail() {
                             )}
                           </div>
                         )}
-                        {/* Suggested Address (geocoder) */}
-                        {grievance.location?.suggestedAddress && (
+                        {/* Map Suggested Address */}
+                        {mapSuggestedAddress && (
                           <div style={{ padding: '0.625rem 0.75rem', background: 'rgba(239,153,0,0.05)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(239,153,0,0.18)' }}>
-                            <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: '#9a5f00', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>Suggested Address (Geocoder)</p>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, fontStyle: 'italic' }}>{grievance.location.suggestedAddress}</p>
+                            <p style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', color: '#9a5f00', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>Map Suggested Address</p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: 1.5, fontStyle: 'italic' }}>{mapSuggestedAddress}</p>
                           </div>
                         )}
                       </div>

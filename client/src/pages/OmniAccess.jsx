@@ -14,6 +14,7 @@ import {
 import Navbar from '../components/Navbar';
 import { demoChannels } from '../data/demoChannels';
 import { cardReveal, cardStagger, heroReveal, pageRevealProps } from '../utils/pageMotion';
+import { useLanguage } from '../context/LanguageContext';
 
 const sourceBadges = ['Web', 'QR', 'WhatsApp', 'IVR', 'Voice'];
 
@@ -69,6 +70,7 @@ const channelIcons = {
 };
 
 export default function OmniAccess() {
+  const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
 
   return (
@@ -81,13 +83,9 @@ export default function OmniAccess() {
           {...pageRevealProps(shouldReduceMotion)}
           style={{ textAlign: 'center', marginBottom: '3rem' }}
         >
-          <div className="badge badge-ai" style={{ marginBottom: '1rem' }}>CivicTrust OmniAccess</div>
-          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.25rem)', fontWeight: 900, letterSpacing: '-0.02em', marginBottom: '1rem', color: 'var(--on-surface)' }}>
-            CivicTrust OmniAccess
-          </h1>
-          <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', maxWidth: '760px', margin: '0 auto', lineHeight: 1.7 }}>
-            Grievance access for every citizen — Web, QR, WhatsApp, Voice and Phone IVR.
-          </p>
+          <div className="badge badge-ai" style={{ marginBottom: '1rem' }}>{t('deep.civicTrustOmniA')}</div>
+          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.25rem)', fontWeight: 900, letterSpacing: '-0.02em', marginBottom: '1rem', color: 'var(--on-surface)' }}>{t('deep.civicTrustOmniA')}</h1>
+          <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', maxWidth: '760px', margin: '0 auto', lineHeight: 1.7 }}>{t('deep.grievanceAccess')}</p>
         </motion.section>
 
         <motion.section

@@ -5,8 +5,10 @@ import OfficerCopilot from '../components/admin/OfficerCopilot';
 import { motion, useReducedMotion } from 'framer-motion';
 import { FileText, PenLine, ShieldCheck, UserCheck } from 'lucide-react';
 import { cardReveal, heroReveal, pageRevealProps } from '../utils/pageMotion';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Copilot() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('citizen');
   const shouldReduceMotion = useReducedMotion();
 
@@ -28,9 +30,7 @@ export default function Copilot() {
           <div className="badge badge-ai" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.9rem', marginBottom: '1rem' }}>
             <FileText size={16} /> CivicDraft AI
           </div>
-          <h1 style={{ fontSize: 'clamp(2.4rem, 6vw, 4.25rem)', fontWeight: 900, letterSpacing: '-0.045em', lineHeight: 1, marginBottom: '1rem', color: 'var(--on-surface)' }}>
-            CivicDraft AI
-          </h1>
+          <h1 style={{ fontSize: 'clamp(2.4rem, 6vw, 4.25rem)', fontWeight: 900, letterSpacing: '-0.045em', lineHeight: 1, marginBottom: '1rem', color: 'var(--on-surface)' }}>{t('copilot.title')}</h1>
           <p style={{ fontSize: '1.18rem', color: 'var(--on-surface-variant)', maxWidth: '720px', margin: '0 auto', lineHeight: 1.65 }}>
             Turn rough citizen words into clear, formal and actionable grievance applications.
           </p>

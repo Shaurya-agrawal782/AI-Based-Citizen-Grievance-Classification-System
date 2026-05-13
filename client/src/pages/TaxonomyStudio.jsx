@@ -5,6 +5,7 @@ import {
   Tag, Clock, AlertTriangle, ChevronDown, ChevronUp, X, Save, Shield
 } from 'lucide-react';
 import { taxonomyAPI } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 const PRIORITY_COLORS = {
   Critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
@@ -75,11 +76,11 @@ function TaxonomyCategoryCard({ cat, onEdit, onToggle, onDelete }) {
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
-          <button onClick={() => onEdit(cat)} className="btn-icon" title="Edit" style={{ color: 'var(--primary)' }}><Edit2 size={15} /></button>
+          <button onClick={() => onEdit(cat)} className="btn-icon" title={t('deep.edit')} style={{ color: 'var(--primary)' }}><Edit2 size={15} /></button>
           <button onClick={() => onToggle(cat._id)} className="btn-icon" title="Toggle" style={{ color: cat.isActive ? '#10b981' : 'var(--outline)' }}>
             {cat.isActive ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
           </button>
-          <button onClick={() => onDelete(cat._id)} className="btn-icon" title="Delete" style={{ color: 'var(--error)' }}><Trash2 size={15} /></button>
+          <button onClick={() => onDelete(cat._id)} className="btn-icon" title={t('deep.delete')} style={{ color: 'var(--error)' }}><Trash2 size={15} /></button>
           <button onClick={() => setExpanded(e => !e)} className="btn-icon" title="Details">
             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </button>
@@ -92,7 +93,7 @@ function TaxonomyCategoryCard({ cat, onEdit, onToggle, onDelete }) {
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden' }}>
             <div style={{ padding: '1rem 1.25rem 1.25rem', borderTop: '1px solid var(--surface-container-high)', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
               <div>
-                <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>Synonyms</p>
+                <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{t('deep.synonyms')}</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                   {(cat.synonyms || []).slice(0, 8).map((s, i) => (
                     <span key={i} style={{ fontSize: '0.6875rem', padding: '0.125rem 0.5rem', background: 'var(--surface-container)', borderRadius: '999px' }}>{s}</span>
@@ -101,13 +102,13 @@ function TaxonomyCategoryCard({ cat, onEdit, onToggle, onDelete }) {
                 </div>
               </div>
               <div>
-                <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>Escalation Chain</p>
+                <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{t('deep.escalationChain')}</p>
                 <p style={{ fontSize: '0.75rem' }}>🔴 {cat.escalationRules?.criticalEscalation}</p>
                 <p style={{ fontSize: '0.75rem' }}>🟡 {cat.escalationRules?.urgentEscalation}</p>
                 <p style={{ fontSize: '0.75rem' }}>🔵 {cat.escalationRules?.normalEscalation}</p>
               </div>
               <div>
-                <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>SLA Hours</p>
+                <p style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>{t('deep.sLAHours')}</p>
                 <p style={{ fontSize: '0.75rem' }}>Critical: <strong>{cat.slaRules?.criticalHours}h</strong></p>
                 <p style={{ fontSize: '0.75rem' }}>Urgent: <strong>{cat.slaRules?.urgentHours}h</strong></p>
                 <p style={{ fontSize: '0.75rem' }}>Normal: <strong>{cat.slaRules?.normalHours}h</strong></p>
@@ -175,7 +176,7 @@ function TaxonomyCategoryForm({ initial, onSave, onClose }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Description</label>
+            <label className="form-label">{t('deep.description')}</label>
             <textarea className="form-input" rows={2} value={form.description} onChange={e => set('description', e.target.value)} />
           </div>
 
@@ -191,27 +192,27 @@ function TaxonomyCategoryForm({ initial, onSave, onClose }) {
           </div>
 
           <div style={{ borderTop: '1px solid var(--surface-container)', paddingTop: '1rem' }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Priority Rules</p>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>{t('deep.priorityRules')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Default Priority</label>
+                <label className="form-label">{t('deep.defaultPriority')}</label>
                 <select className="form-input" value={form.priorityRules.defaultPriority} onChange={e => setPri('defaultPriority', e.target.value)}>
                   {['Critical', 'Urgent', 'Normal', 'Review'].map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Critical Keywords</label>
+                <label className="form-label">{t('deep.criticalKeyword')}</label>
                 <input className="form-input" value={form.priorityRules.criticalKeywords} onChange={e => setPri('criticalKeywords', e.target.value)} />
               </div>
               <div className="form-group">
-                <label className="form-label">Urgent Keywords</label>
+                <label className="form-label">{t('deep.urgentKeywords')}</label>
                 <input className="form-input" value={form.priorityRules.urgentKeywords} onChange={e => setPri('urgentKeywords', e.target.value)} />
               </div>
             </div>
           </div>
 
           <div style={{ borderTop: '1px solid var(--surface-container)', paddingTop: '1rem' }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>SLA Hours</p>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>{t('deep.sLAHours')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
               {[['criticalHours', 'Critical'], ['urgentHours', 'Urgent'], ['normalHours', 'Normal']].map(([field, label]) => (
                 <div key={field} className="form-group">
@@ -223,7 +224,7 @@ function TaxonomyCategoryForm({ initial, onSave, onClose }) {
           </div>
 
           <div style={{ borderTop: '1px solid var(--surface-container)', paddingTop: '1rem' }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>Escalation Officers</p>
+            <p style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>{t('deep.escalationOffic')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
               {[['criticalEscalation', '🔴 Critical'], ['urgentEscalation', '🟡 Urgent'], ['normalEscalation', '🔵 Normal']].map(([field, label]) => (
                 <div key={field} className="form-group">
@@ -240,9 +241,9 @@ function TaxonomyCategoryForm({ initial, onSave, onClose }) {
           </label>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-            <button type="button" onClick={onClose} className="btn btn-outline">Cancel</button>
+            <button type="button" onClick={onClose} className="btn btn-outline">{t('deep.cancel')}</button>
             <button type="submit" className="btn btn-secondary" disabled={saving}>
-              {saving ? <div className="spinner" style={{ width: '1rem', height: '1rem', borderWidth: '2px' }} /> : <><Save size={15} /> Save Category</>}
+              {saving ? <div className="spinner" style={{ width: '1rem', height: '1rem', borderWidth: '2px' }} /> : <><Save size={15} />{t('deep.saveCategory')}</>}
             </button>
           </div>
         </form>
@@ -253,6 +254,7 @@ function TaxonomyCategoryForm({ initial, onSave, onClose }) {
 
 /* ── Main Page ── */
 export default function TaxonomyStudio() {
+  const { t } = useLanguage();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -325,10 +327,8 @@ export default function TaxonomyStudio() {
                 <Brain size={28} />
               </div>
               <div>
-                <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Adaptive Taxonomy Studio</h1>
-                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', marginTop: '0.25rem' }}>
-                  Manage complaint categories, department mapping, synonyms, SLA and escalation rules.
-                </p>
+                <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em' }}>{t('deep.adaptiveTaxonom')}</h1>
+                <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.9375rem', marginTop: '0.25rem' }}>{t('deep.manageComplaint')}</p>
               </div>
             </div>
             <button
@@ -336,8 +336,7 @@ export default function TaxonomyStudio() {
               className="btn btn-secondary"
               style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             >
-              <Plus size={18} /> Add Category
-            </button>
+              <Plus size={18} />{t('deep.addCategory')}</button>
           </div>
 
           {/* Why This Matters card */}
@@ -346,7 +345,7 @@ export default function TaxonomyStudio() {
               <Shield size={20} />
             </div>
             <div>
-              <p style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>Why this matters</p>
+              <p style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>{t('deep.whyThisMatters')}</p>
               <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>
                 When a new civic issue appears, admins can update categories and SLA rules without redeploying CivicTrust.
                 The AI engine reads this taxonomy to classify, prioritize, and route complaints dynamically.
@@ -384,7 +383,7 @@ export default function TaxonomyStudio() {
           ) : categories.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--on-surface-variant)' }}>
               <Brain size={48} style={{ opacity: 0.2, display: 'block', margin: '0 auto 1rem' }} />
-              <p style={{ fontWeight: 600 }}>No taxonomy categories yet.</p>
+              <p style={{ fontWeight: 600 }}>{t('deep.noTaxonomyCateg')}</p>
               <p style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>Run <code>npm run seed:taxonomy</code> on the server, or add categories using the button above.</p>
             </div>
           ) : (
@@ -418,14 +417,11 @@ export default function TaxonomyStudio() {
           <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
             style={{ background: 'var(--surface)', borderRadius: 'var(--radius-xl)', padding: '2rem', maxWidth: '400px', width: '90%' }}>
             <h3 style={{ fontWeight: 700, marginBottom: '0.75rem' }}>Delete Category?</h3>
-            <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '0.9375rem' }}>
-              This action is permanent and cannot be undone. Existing complaints using this category will not be affected.
-            </p>
+            <p style={{ color: 'var(--on-surface-variant)', marginBottom: '1.5rem', fontSize: '0.9375rem' }}>{t('deep.thisActionIsPer')}</p>
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button className="btn btn-outline" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+              <button className="btn btn-outline" onClick={() => setDeleteConfirm(null)}>{t('deep.cancel')}</button>
               <button className="btn btn-primary" style={{ background: 'var(--error)' }} onClick={() => handleDelete(deleteConfirm)}>
-                <Trash2 size={15} /> Delete
-              </button>
+                <Trash2 size={15} />{t('deep.delete')}</button>
             </div>
           </motion.div>
         </div>

@@ -174,9 +174,7 @@ export default function TrackComplaint() {
     <div className="container" style={{ padding: '2rem', maxWidth: '800px' }}>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>{t('ticket.title')}</h1>
-        <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', marginBottom: '2rem' }}>
-          Enter your grievance tracking ID to view the current status and resolution timeline.
-        </p>
+        <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', marginBottom: '2rem' }}>{t('deep.enterYourGrieva')}</p>
 
         {/* Search Form */}
         <form onSubmit={handleTrack} style={{ display: 'flex', gap: '0.75rem', marginBottom: '2rem' }}>
@@ -287,10 +285,8 @@ export default function TrackComplaint() {
                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--error-container)', color: 'var(--on-error-container)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--error)' }}>
                     <p style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span className="material-symbols-outlined">priority_high</span>
-                      Escalated to Higher Authority
-                    </p>
-                    <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>This complaint has bypassed standard routing due to urgency or delay.</p>
+                      <span className="material-symbols-outlined">priority_high</span>{t('deep.escalatedToHigh')}</p>
+                    <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>{t('deep.thisComplaintHa')}</p>
                   </motion.div>
                 )}
               </div>
@@ -300,25 +296,23 @@ export default function TrackComplaint() {
             <div className="card" style={{ padding: '2rem', marginBottom: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                 <div>
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.25rem' }}>Before / After</h3>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-                    Review submitted evidence and the officer resolution proof.
-                  </p>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.25rem' }}>{t('deep.beforeAfter')}</h3>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{t('deep.reviewSubmitted')}</p>
                 </div>
                 {grievance.resolutionProof?.uploadedAt && (
-                  <span className="badge badge-resolved">Resolution proof available</span>
+                  <span className="badge badge-resolved">{t('deep.resolutionProof')}</span>
                 )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
                 <div>
-                  <p className="form-label" style={{ marginBottom: '0.75rem' }}>Citizen Evidence Images</p>
+                  <p className="form-label" style={{ marginBottom: '0.75rem' }}>{t('deep.citizenEvidence')}</p>
                   <EvidenceImageGrid
                     items={grievance.attachments}
                     emptyText="No citizen evidence images attached."
                   />
                 </div>
                 <div>
-                  <p className="form-label" style={{ marginBottom: '0.75rem' }}>Officer Resolution Proof Images</p>
+                  <p className="form-label" style={{ marginBottom: '0.75rem' }}>{t('deep.officerResoluti')}</p>
                   <EvidenceImageGrid
                     items={grievance.resolutionProof?.images}
                     emptyText="Resolution proof images will appear here once uploaded."
@@ -328,7 +322,7 @@ export default function TrackComplaint() {
               </div>
               {grievance.resolutionProof?.note && (
                 <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(14,165,164,0.06)', border: '1px solid rgba(14,165,164,0.16)', borderRadius: 'var(--radius-md)' }}>
-                  <p className="form-label" style={{ marginBottom: '0.35rem' }}>Resolution Note</p>
+                  <p className="form-label" style={{ marginBottom: '0.35rem' }}>{t('deep.resolutionNote')}</p>
                   <p style={{ fontSize: '0.9375rem', lineHeight: 1.6 }}>{grievance.resolutionProof.note}</p>
                 </div>
               )}
@@ -355,17 +349,15 @@ export default function TrackComplaint() {
               <form className="card" style={{ padding: '2rem', marginBottom: '1.5rem' }} onSubmit={handleFeedbackSubmit}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                   <div>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.25rem' }}>Resolution Feedback</h3>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-                      Let the officer know whether the issue was resolved properly.
-                    </p>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.25rem' }}>{t('deep.resolutionFeedb')}</h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>{t('deep.letTheOfficerKn')}</p>
                   </div>
                   <span className="material-symbols-outlined" style={{ color: 'var(--warning)' }}>stars</span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   <div>
-                    <p className="form-label" style={{ marginBottom: '0.75rem' }}>Rating</p>
+                    <p className="form-label" style={{ marginBottom: '0.75rem' }}>{t('deep.rating')}</p>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       {[1, 2, 3, 4, 5].map(rating => (
                         <button
@@ -414,20 +406,18 @@ export default function TrackComplaint() {
                       ))}
                     </div>
                     {feedbackForm.satisfied === 'no' && (
-                      <p style={{ marginTop: '0.75rem', color: 'var(--error)', fontSize: '0.875rem', fontWeight: 700 }}>
-                        This will reopen your complaint for review.
-                      </p>
+                      <p style={{ marginTop: '0.75rem', color: 'var(--error)', fontSize: '0.875rem', fontWeight: 700 }}>{t('deep.thisWillReopenY')}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="form-label">Comment</label>
+                    <label className="form-label">{t('deep.comment')}</label>
                     <textarea
                       className="form-textarea"
                       rows={3}
                       value={feedbackForm.comment}
                       onChange={e => setFeedbackForm(prev => ({ ...prev, comment: e.target.value }))}
-                      placeholder="Add a short note for the officer..."
+                      placeholder={t('deep.addAShortNoteFo')}
                     />
                   </div>
 
@@ -449,7 +439,7 @@ export default function TrackComplaint() {
               <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                   <div>
-                    <p style={{ fontSize: '0.875rem', fontWeight: 800, marginBottom: '0.35rem' }}>Feedback Submitted</p>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 800, marginBottom: '0.35rem' }}>{t('deep.feedbackSubmitt')}</p>
                     <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)' }}>
                       Rating: {grievance.feedback.rating}/5
                       {grievance.feedback.comment ? ` - ${grievance.feedback.comment}` : ''}
@@ -467,7 +457,7 @@ export default function TrackComplaint() {
             {/* Timeline */}
             {grievance.timeline && grievance.timeline.length > 0 && (
               <div className="card" style={{ padding: '2rem' }}>
-                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1.5rem' }}>Resolution Timeline</h3>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1.5rem' }}>{t('deep.resolutionTimel')}</h3>
                 <div className="timeline">
                   {[...grievance.timeline].reverse().map((entry, i) => (
                     <motion.div
@@ -504,7 +494,7 @@ export default function TrackComplaint() {
         {/* Demo Help */}
         {!grievance && !error && (
           <div className="card-flat" style={{ padding: '1.5rem', borderRadius: 'var(--radius-xl)' }}>
-            <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Try tracking these sample IDs:</p>
+            <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>{t('deep.tryTrackingThes')}</p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {['GRV-9921', 'GRV-9918', 'GRV-9910', 'GRV-9905'].map(id => (
                 <button

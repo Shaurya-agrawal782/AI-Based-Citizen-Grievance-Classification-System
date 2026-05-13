@@ -2,8 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Home, MapPin, Ticket, Play } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function NotFound() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const actions = [
@@ -25,13 +27,9 @@ export default function NotFound() {
             404
           </div>
           
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--on-surface)' }}>
-            Page Not Found
-          </h1>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--on-surface)' }}>{t('deep.pageNotFound')}</h1>
           
-          <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', marginBottom: '2rem', lineHeight: 1.6 }}>
-            The page you're looking for doesn't exist or is temporarily unavailable. This might happen if you're accessing a direct route. Try one of the navigation options below.
-          </p>
+          <p style={{ fontSize: '1.125rem', color: 'var(--on-surface-variant)', marginBottom: '2rem', lineHeight: 1.6 }}>{t('deep.thePageYouReLoo')}</p>
 
           <motion.div
             initial={{ opacity: 0 }}
@@ -72,8 +70,7 @@ export default function NotFound() {
 
           <div style={{ marginTop: '3rem', padding: '1.5rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--outline-variant)' }}>
             <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)' }}>
-              <strong>Tip:</strong> If you scanned a QR code, make sure you're accessing the app from the correct domain. Direct routes work best when the site is properly deployed with SPA fallback configured.
-            </p>
+              <strong>{t('deep.tip')}</strong>{t('deep.ifYouScannedAQR')}</p>
           </div>
         </motion.div>
       </div>

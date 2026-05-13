@@ -6,8 +6,10 @@ import { motion, useReducedMotion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import TicketReceipt from '../components/citizen/TicketReceipt';
 import { cardReveal, heroReveal, pageRevealProps } from '../utils/pageMotion';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function QRZoneReport() {
+  const { t } = useLanguage();
   const { zoneId } = useParams();
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
@@ -18,9 +20,9 @@ export default function QRZoneReport() {
       <div className="page-wrapper">
         <Navbar />
         <div className="container" style={{ padding: '4rem', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Zone Not Found</h2>
-          <p>The scanned QR code is invalid or the zone does not exist.</p>
-          <button onClick={() => navigate('/')} className="btn btn-primary" style={{ marginTop: '2rem' }}>Return Home</button>
+          <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>{t('deep.zoneNotFound')}</h2>
+          <p>{t('deep.theScannedQRCod')}</p>
+          <button onClick={() => navigate('/')} className="btn btn-primary" style={{ marginTop: '2rem' }}>{t('deep.returnHome')}</button>
         </div>
       </div>
     );
@@ -38,8 +40,7 @@ export default function QRZoneReport() {
             </div>
             <div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.25rem 0.75rem', borderRadius: 'var(--radius-full)', marginBottom: '0.5rem', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>verified</span> Verified QR Zone
-              </div>
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>verified</span>{t('deep.verifiedQRZone')}</div>
               <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--on-surface)' }}>{zone.zoneName}</h1>
             </div>
           </div>
@@ -48,7 +49,7 @@ export default function QRZoneReport() {
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
               <MapPin color="var(--secondary)" size={24} style={{ marginTop: '0.25rem' }} />
               <div>
-                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--on-surface-variant)' }}>Exact Address</p>
+                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--on-surface-variant)' }}>{t('deep.exactAddress')}</p>
                 <p style={{ fontSize: '1.125rem', fontWeight: 600 }}>{zone.address}</p>
                 <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>{zone.ward} • {zone.zone} Zone</p>
               </div>
@@ -57,7 +58,7 @@ export default function QRZoneReport() {
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
               <User color="var(--primary)" size={24} style={{ marginTop: '0.25rem' }} />
               <div>
-                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--on-surface-variant)' }}>Assigned Zone Officer</p>
+                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--on-surface-variant)' }}>{t('deep.assignedZoneOff')}</p>
                 <p style={{ fontSize: '1.125rem', fontWeight: 600 }}>{zone.officerName}</p>
                 <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>{zone.officerRole}</p>
               </div>
@@ -66,8 +67,8 @@ export default function QRZoneReport() {
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', padding: '1rem', background: 'rgba(239,68,68,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239,68,68,0.1)' }}>
               <ShieldAlert color="#ef4444" size={24} style={{ marginTop: '0.125rem' }} />
               <div>
-                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase' }}>Auto-Routing Enabled</p>
-                <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--on-surface)', marginTop: '0.25rem' }}>This complaint will be tagged with this QR zone for faster routing. It will be automatically mapped to local authorities with high priority.</p>
+                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase' }}>{t('deep.autoRoutingEnab')}</p>
+                <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--on-surface)', marginTop: '0.25rem' }}>{t('deep.thisComplaintWi')}</p>
               </div>
             </div>
           </div>
@@ -77,8 +78,7 @@ export default function QRZoneReport() {
               className="btn btn-primary btn-lg premium-button-hover"
               onClick={() => navigate(`/grievance/new?zoneId=${zone.zoneId}`)}
               style={{ width: '100%', justifyContent: 'center', borderRadius: 'var(--radius-xl)', padding: '1rem', fontSize: '1.125rem', fontWeight: 700 }}
-            >
-              Continue to Complaint Form <ArrowRight size={24} />
+            >{t('deep.continueToCompl')}<ArrowRight size={24} />
             </button>
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function QRZoneReport() {
 
         {/* Demo: What citizen receives after submission */}
         <motion.div className="animate-card" variants={cardReveal} {...pageRevealProps(shouldReduceMotion)} style={{ marginTop: '2rem' }}>
-          <p style={{ fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', letterSpacing: '0.06em', marginBottom: '1rem' }}>Preview — What You Receive After Submission</p>
+          <p style={{ fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--on-surface-variant)', letterSpacing: '0.06em', marginBottom: '1rem' }}>{t('deep.previewWhatYouR')}</p>
           <TicketReceipt
             ticketId="CT-TKT-2026-0001"
             complaintId="CT-2026-0001"

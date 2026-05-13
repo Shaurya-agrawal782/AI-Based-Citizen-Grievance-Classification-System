@@ -8,8 +8,10 @@ import GrievanceReceipt from '../components/citizen/GrievanceReceipt';
 import WorkloadBalancerCard from '../components/admin/WorkloadBalancerCard';
 import TicketReceipt from '../components/citizen/TicketReceipt';
 import { cardReveal, cardStagger, heroReveal, pageRevealProps } from '../utils/pageMotion';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function DemoMode() {
+  const { t } = useLanguage();
   const [demoData, setDemoData] = useState(null);
   const [loading, setLoading] = useState(true);
   const shouldReduceMotion = useReducedMotion();

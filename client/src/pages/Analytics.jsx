@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { grievanceAPI } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Analytics() {
+  const { t } = useLanguage();
   const { logout } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);

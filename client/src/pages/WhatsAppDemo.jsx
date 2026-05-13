@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, MessageCircle, Send, ShieldAlert, Ticket } fr
 import Navbar from '../components/Navbar';
 import TicketReceipt from '../components/citizen/TicketReceipt';
 import { cardReveal, heroReveal, pageRevealProps } from '../utils/pageMotion';
+import { useLanguage } from '../context/LanguageContext';
 
 const WA_TICKET_ID = 'CT-TKT-2026-WA001';
 const PRIMARY_DEMO_TICKET_ID = 'CT-TKT-2026-0001';
@@ -252,6 +253,7 @@ function buildOutOfScopeReply(intent) {
 }
 
 export default function WhatsAppDemo() {
+  const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState('');
@@ -422,14 +424,9 @@ export default function WhatsAppDemo() {
           style={{ textAlign: 'center', marginBottom: '2.5rem' }}
         >
           <div className="badge badge-ai" style={{ marginBottom: '1rem' }}>
-            <MessageCircle size={14} /> Channel Prototype
-          </div>
-          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 900, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
-            CivicTrust WhatsApp Complaint Demo
-          </h1>
-          <p style={{ color: 'var(--on-surface-variant)', fontSize: '1.05rem' }}>
-            Demo simulation only - real WhatsApp API can be integrated later.
-          </p>
+            <MessageCircle size={14} />{t('deep.channelPrototyp')}</div>
+          <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 900, letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>{t('deep.civicTrustWhats')}</h1>
+          <p style={{ color: 'var(--on-surface-variant)', fontSize: '1.05rem' }}>{t('deep.demoSimulationO')}</p>
         </motion.section>
 
         <div style={{ display: 'grid', gridTemplateColumns: createdTicket ? 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' : 'minmax(0, 760px)', justifyContent: 'center', gap: '1.5rem', alignItems: 'start' }}>
@@ -445,7 +442,7 @@ export default function WhatsAppDemo() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <h2 style={{ fontSize: '1rem', fontWeight: 800 }}>CivicTrust AI</h2>
-                  <p style={{ color: '#128c7e', fontSize: '0.8125rem', fontWeight: 700 }}>Demo chatbot active</p>
+                  <p style={{ color: '#128c7e', fontSize: '0.8125rem', fontWeight: 700 }}>{t('deep.demoChatbotActi')}</p>
                 </div>
                 <span className="badge" style={{ background: 'rgba(18,140,126,0.1)', color: '#128c7e' }}>{messageCount} messages</span>
               </div>
@@ -469,41 +466,38 @@ export default function WhatsAppDemo() {
                       >
                         {message.type === 'analysis' ? (
                           <div>
-                            <p style={{ fontWeight: 800, marginBottom: '0.65rem' }}>Complaint detected:</p>
+                            <p style={{ fontWeight: 800, marginBottom: '0.65rem' }}>{t('deep.complaintDetect')}</p>
                             <div style={{ display: 'grid', gap: '0.35rem', fontSize: '0.9rem' }}>
-                              <span>Category: <strong>{message.category}</strong></span>
-                              <span>Priority: <strong style={{ color: '#dc2626' }}>{message.priority}</strong></span>
-                              <span>SLA: <strong>{message.sla}</strong></span>
-                              <span>Reason: <strong>{message.reason}</strong></span>
+                              <span>{t('deep.categoryx')}<strong>{message.category}</strong></span>
+                              <span>{t('deep.priorityx')}<strong style={{ color: '#dc2626' }}>{message.priority}</strong></span>
+                              <span>{t('deep.sLA')}<strong>{message.sla}</strong></span>
+                              <span>{t('deep.reason')}<strong>{message.reason}</strong></span>
                             </div>
-                            <p style={{ marginTop: '0.75rem', fontWeight: 700 }}>Reply YES to create a demo ticket.</p>
+                            <p style={{ marginTop: '0.75rem', fontWeight: 700 }}>{t('deep.replyYESToCreat')}</p>
                           </div>
                         ) : message.type === 'created' ? (
                           <div>
                             <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, color: '#047857', marginBottom: '0.5rem' }}>
-                              <CheckCircle2 size={18} /> Ticket created successfully.
-                            </p>
-                            <p>Ticket ID: <strong>{message.ticketId}</strong></p>
-                            <p>Source: <strong>{message.source}</strong></p>
-                            <p>Status: <strong>{message.status}</strong></p>
+                              <CheckCircle2 size={18} />{t('deep.ticketCreatedSu')}</p>
+                            <p>{t('deep.ticketID')}<strong>{message.ticketId}</strong></p>
+                            <p>{t('deep.source')}<strong>{message.source}</strong></p>
+                            <p>{t('deep.status')}<strong>{message.status}</strong></p>
                             <Link
                               to={`/track-ticket?ticket=${message.ticketId}`}
                               className="btn btn-primary btn-sm premium-button-hover"
                               style={{ marginTop: '0.75rem', borderRadius: 'var(--radius-full)' }}
-                            >
-                              Track Ticket <ArrowRight size={14} />
+                            >{t('deep.trackTicket')}<ArrowRight size={14} />
                             </Link>
                           </div>
                         ) : message.type === 'status' ? (
                           <div>
                             <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-                              <Ticket size={17} /> Ticket found:
-                            </p>
-                            <p>Status: <strong>{message.status}</strong></p>
-                            <p>Priority: <strong>{message.priority}</strong></p>
-                            <p>SLA: <strong>{message.sla}</strong></p>
-                            <p>Assigned Officer: <strong>{message.assignedOfficer}</strong></p>
-                            <p>Ward: <strong>{message.ward}</strong></p>
+                              <Ticket size={17} />{t('deep.ticketFound')}</p>
+                            <p>{t('deep.status')}<strong>{message.status}</strong></p>
+                            <p>{t('deep.priorityx')}<strong>{message.priority}</strong></p>
+                            <p>{t('deep.sLA')}<strong>{message.sla}</strong></p>
+                            <p>{t('deep.assignedOfficer')}<strong>{message.assignedOfficer}</strong></p>
+                            <p>{t('deep.wardx')}<strong>{message.ward}</strong></p>
                             {message.action && (
                               <Link
                                 to={message.action.to}
@@ -540,9 +534,7 @@ export default function WhatsAppDemo() {
               </div>
 
               <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.84)', borderTop: '1px solid rgba(226,232,240,0.76)' }}>
-                <p style={{ fontSize: '0.76rem', color: 'var(--on-surface-variant)', margin: '0 0 0.75rem', lineHeight: 1.45 }}>
-                  Demo bot only handles civic grievance filing, tracking, SLA, QR and emergency guidance.
-                </p>
+                <p style={{ fontSize: '0.76rem', color: 'var(--on-surface-variant)', margin: '0 0 0.75rem', lineHeight: 1.45 }}>{t('deep.demoBotOnlyHand')}</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.85rem' }}>
                   {quickButtons.map((label) => (
                     <button

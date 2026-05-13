@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { grievanceAPI } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 const categoryIcons = {
   'Public Infrastructure': { icon: 'construction', class: 'infrastructure' },
@@ -26,6 +27,7 @@ const statusLabels = {
 };
 
 export default function AdminDashboard() {
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);

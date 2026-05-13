@@ -5,6 +5,7 @@ import { ArrowRight, Check, Copy, PhoneCall, RotateCcw, Volume2 } from 'lucide-r
 import Navbar from '../components/Navbar';
 import TicketReceipt from '../components/citizen/TicketReceipt';
 import { cardReveal, heroReveal, pageRevealProps } from '../utils/pageMotion';
+import { useLanguage } from '../context/LanguageContext';
 
 const categoryByKey = {
   1: 'Electricity',
@@ -56,6 +57,7 @@ function buildTicket(category, priority) {
 }
 
 export default function IVRDemo() {
+  const { t } = useLanguage();
   const shouldReduceMotion = useReducedMotion();
   const [selectedCategory, setSelectedCategory] = useState('');
   const [priority, setPriority] = useState('Normal');
