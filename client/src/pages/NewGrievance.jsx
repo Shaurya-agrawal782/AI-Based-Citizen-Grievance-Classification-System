@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Loader2, AlertCircle, AlertTriangle, ShieldAlert, Navigation, Trash2, Edit2, Check } from 'lucide-react';
@@ -70,7 +70,7 @@ const buildCoarseDisplayAddress = (geocoded, fallbackAddress) => {
   return cleanDisplayAddress([city, state, country].filter(Boolean).join(', ')) || cleanDisplayAddress(fallbackAddress);
 };
 
-const buildLocationPayload = (fields, detected, sourceOverride) => {
+const buildLocationPayload = (fields, detected, sourceOverride, options = {}) => {
   const lat = detected?.lat ?? detected?.coordinates?.lat ?? null;
   const lng = detected?.lng ?? detected?.coordinates?.lng ?? null;
 
@@ -82,6 +82,10 @@ const buildLocationPayload = (fields, detected, sourceOverride) => {
     address: displayAddress,
     pincode: manualPincode,
   }) || displayAddress || suggestedAddress;
+
+  const detectedAt = detected?.detectedAt
+    || (detected?.timestamp ? new Date(detected.timestamp).toISOString() : new Date().toISOString());
+  const confirmedByUser = options.confirmedByUser ?? detected?.confirmedByUser ?? false;
 
   const payload = {
     lat,
@@ -96,14 +100,17 @@ const buildLocationPayload = (fields, detected, sourceOverride) => {
     suggestedAddress,
     displayAddress,
     finalAddress,
-    confirmedByUser: true,
-    detectedAt: detected?.timestamp ? new Date(detected.timestamp).toISOString() : new Date().toISOString(),
+    detectedAt,
+    confirmedByUser,
   };
 
   if (fields.area?.trim() || detected?.area) payload.area = fields.area?.trim() || detected?.area;
   if (fields.ward?.trim() || detected?.ward) payload.ward = fields.ward?.trim() || detected?.ward;
   if (fields.zone?.trim() || detected?.zone) payload.zone = fields.zone?.trim() || detected?.zone;
   if (lat !== null && lng !== null) payload.coordinates = { lat, lng };
+  if (detected?.mapDisplayAddress) payload.mapDisplayAddress = cleanDisplayAddress(detected.mapDisplayAddress);
+  if (typeof detected?.isApproximateGps === 'boolean') payload.isApproximateGps = detected.isApproximateGps;
+  if (detected?.timestamp) payload.timestamp = detected.timestamp;
 
   return payload;
 };
@@ -132,7 +139,7 @@ export default function NewGrievance() {
   
   // Location management
   const [isLocating, setIsLocating] = useState(false);
-  const [locationDetected, setLocationDetected] = useState(null);
+  const [confirmedLocation, setConfirmedLocation] = useState(null);
   const [qrContext, setQrContextState] = useState(null);
   const [showLocationEdit, setShowLocationEdit] = useState(false);
   const [locationError, setLocationError] = useState(null);
@@ -167,21 +174,6 @@ export default function NewGrievance() {
 
   const [voiceLanguage, setVoiceLanguage] = useState('hi-IN');
 
-  const confirmedEvidenceLocation = useMemo(() => {
-    const fields = {
-      ...locationFields,
-      address: locationFields.address?.trim() || form.location,
-    };
-
-    if (!fields.address && !fields.landmark && !locationDetected && !form.location) return null;
-
-    return buildLocationPayload(
-      fields,
-      locationDetected,
-      form.locationSource || locationDetected?.source || 'Manual'
-    );
-  }, [form.location, form.locationSource, locationDetected, locationFields]);
-
   useEffect(() => {
     locationFieldsRef.current = locationFields;
   }, [locationFields]);
@@ -192,17 +184,27 @@ export default function NewGrievance() {
     setLocationFields(next);
 
     const preview = buildLocationPreview(next);
+    const nextSource = form.locationSource || confirmedLocation?.source || 'Manual';
     if (preview) {
       setForm(formPrev => ({
         ...formPrev,
         location: preview,
-        locationSource: formPrev.locationSource || locationDetected?.source || 'Manual',
+        locationSource: formPrev.locationSource || confirmedLocation?.source || 'Manual',
       }));
     }
 
     if (Object.prototype.hasOwnProperty.call(updates, 'landmark')) {
       setLocationConfirmed(false);
       if (updates.landmark?.trim()) setLocationWarning(null);
+    }
+
+    if (confirmedLocation) {
+      setConfirmedLocation(prev => buildLocationPayload(
+        next,
+        prev || confirmedLocation,
+        nextSource,
+        { confirmedByUser: false }
+      ));
     }
   };
 
@@ -230,7 +232,7 @@ export default function NewGrievance() {
         if (qrCtx) {
           const rawQrAddress = qrCtx.address || '';
           const displayQrAddress = cleanDisplayAddress(rawQrAddress) || rawQrAddress;
-          setLocationDetected({
+          const qrLocationData = {
             lat: qrCtx.lat,
             lng: qrCtx.lng,
             address: displayQrAddress,
@@ -242,7 +244,7 @@ export default function NewGrievance() {
             ward: qrCtx.ward || '',
             zone: qrCtx.zone || '',
             timestamp: Date.now(),
-          });
+          };
           
           const nextFields = {
             ...locationFieldsRef.current,
@@ -257,6 +259,7 @@ export default function NewGrievance() {
 
           locationFieldsRef.current = nextFields;
           setLocationFields(nextFields);
+          setConfirmedLocation(buildLocationPayload(nextFields, qrLocationData, 'QR', { confirmedByUser: false }));
           
           setForm(prev => ({
             ...prev,
@@ -312,7 +315,6 @@ export default function NewGrievance() {
         isApproximateGps,
       };
       
-      setLocationDetected(locationData);
       const nextFields = {
         ...locationFieldsRef.current,
         city: detectedCity,
@@ -326,6 +328,7 @@ export default function NewGrievance() {
 
       locationFieldsRef.current = nextFields;
       setLocationFields(nextFields);
+      setConfirmedLocation(buildLocationPayload(nextFields, locationData, 'GPS', { confirmedByUser: false }));
       
       setForm(prev => ({
         ...prev,
@@ -353,12 +356,12 @@ export default function NewGrievance() {
   };
 
   const handleUseDetectedLocation = () => {
-    if (locationDetected) {
+    if (confirmedLocation) {
       const fields = locationFieldsRef.current;
       const hasLandmark = Boolean(fields.landmark?.trim());
       const hasArea = Boolean(fields.area?.trim());
       const hasPincode = Boolean(fields.pincode?.trim());
-      const needsAreaConfirmation = locationDetected.isApproximateGps || Number(locationDetected.accuracy) > TRUSTED_LOCALITY_ACCURACY_METERS;
+      const needsAreaConfirmation = confirmedLocation.isApproximateGps || Number(confirmedLocation.accuracy) > TRUSTED_LOCALITY_ACCURACY_METERS;
 
       const warnings = [];
       if (needsAreaConfirmation && !hasArea) warnings.push('Please enter your actual area/locality.');
@@ -375,9 +378,10 @@ export default function NewGrievance() {
 
       setForm(prev => ({
         ...prev,
-        location: buildLocationPreview(fields) || locationDetected.address,
-        locationSource: locationDetected.source,
+        location: buildLocationPreview(fields) || confirmedLocation.finalAddress || confirmedLocation.displayAddress || confirmedLocation.address,
+        locationSource: confirmedLocation.source,
       }));
+      setConfirmedLocation(prev => buildLocationPayload(fields, prev || confirmedLocation, confirmedLocation.source, { confirmedByUser: true }));
       // Always confirm after user explicitly clicks Use This Location
       setLocationConfirmed(true);
     }
@@ -389,7 +393,7 @@ export default function NewGrievance() {
 
   const handleSaveManualLocation = () => {
     const fields = locationFieldsRef.current;
-    const savedSource = locationDetected?.source || 'Manual';
+    const savedSource = confirmedLocation?.source || 'Manual';
     const manualAddress = [
       fields.area,
       fields.city,
@@ -413,22 +417,28 @@ export default function NewGrievance() {
       locationSource: savedSource,
     }));
     
-    setLocationDetected(prev => ({
-      ...prev,
-      source: savedSource,
-      address: displayAddress,
-      displayAddress,
-      landmark: nextFields.landmark,
-      city: nextFields.city,
-      area: nextFields.area,
-      ward: nextFields.ward,
-      zone: nextFields.zone,
-      state: nextFields.state,
-      pincode: nextFields.pincode,
-    }));
+    const confirmedByUser = Boolean(nextFields.landmark?.trim());
+    setConfirmedLocation(prev => buildLocationPayload(
+      nextFields,
+      {
+        ...(prev || confirmedLocation || {}),
+        source: savedSource,
+        address: displayAddress,
+        displayAddress,
+        landmark: nextFields.landmark,
+        city: nextFields.city,
+        area: nextFields.area,
+        ward: nextFields.ward,
+        zone: nextFields.zone,
+        state: nextFields.state,
+        pincode: nextFields.pincode,
+      },
+      savedSource,
+      { confirmedByUser }
+    ));
     
     setLocationWarning(null);
-    setLocationConfirmed(Boolean(nextFields.landmark?.trim()));
+    setLocationConfirmed(confirmedByUser);
     setShowLocationEdit(false);
   };
 
@@ -438,19 +448,72 @@ export default function NewGrievance() {
   };
 
   const handleRedetectLocation = async () => {
-    setLocationDetected(null);
+    setConfirmedLocation(null);
     setLocationError(null);
     setLocationWarning(null);
     setLocationConfirmed(false);
     await handleDetectLocation();
   };
 
+  const handleEvidenceLocationCaptured = (capturedLocation = {}) => {
+    const source = capturedLocation.source || confirmedLocation?.source || 'GPS';
+    const rawAddress = capturedLocation.finalAddress
+      || capturedLocation.displayAddress
+      || capturedLocation.address
+      || capturedLocation.suggestedAddress
+      || confirmedLocation?.finalAddress
+      || confirmedLocation?.displayAddress
+      || confirmedLocation?.address
+      || '';
+    const displayAddress = cleanDisplayAddress(rawAddress) || rawAddress;
+    const nextFields = {
+      ...locationFieldsRef.current,
+      landmark: capturedLocation.landmark ?? locationFieldsRef.current.landmark,
+      city: capturedLocation.city || locationFieldsRef.current.city || confirmedLocation?.city || '',
+      area: capturedLocation.area || locationFieldsRef.current.area || confirmedLocation?.area || '',
+      ward: capturedLocation.ward || locationFieldsRef.current.ward || confirmedLocation?.ward || '',
+      zone: capturedLocation.zone || locationFieldsRef.current.zone || confirmedLocation?.zone || '',
+      address: displayAddress || locationFieldsRef.current.address,
+      state: capturedLocation.state || locationFieldsRef.current.state || confirmedLocation?.state || '',
+      pincode: capturedLocation.pincode || locationFieldsRef.current.pincode || confirmedLocation?.pincode || '',
+    };
+    const nextDetected = {
+      ...(confirmedLocation || {}),
+      ...capturedLocation,
+      source,
+      address: displayAddress,
+      displayAddress,
+      suggestedAddress: capturedLocation.suggestedAddress || capturedLocation.address || confirmedLocation?.suggestedAddress || '',
+      mapDisplayAddress: displayAddress,
+      timestamp: capturedLocation.timestamp || Date.now(),
+    };
+    const confirmedByUser = Boolean(capturedLocation.confirmedByUser ?? confirmedLocation?.confirmedByUser ?? false);
+    const nextConfirmedLocation = buildLocationPayload(nextFields, nextDetected, source, { confirmedByUser });
+
+    locationFieldsRef.current = nextFields;
+    setLocationFields(nextFields);
+    setConfirmedLocation(nextConfirmedLocation);
+    setForm(prev => ({
+      ...prev,
+      location: buildLocationPreview(nextFields) || nextConfirmedLocation.finalAddress || nextConfirmedLocation.displayAddress || displayAddress,
+      locationSource: source,
+    }));
+    setLocationConfirmed(confirmedByUser);
+
+    if (source === 'GPS' && Number(nextConfirmedLocation.accuracy) > TRUSTED_LOCALITY_ACCURACY_METERS) {
+      setLocationWarning('GPS accuracy is approximate. Please enter your actual area/locality and exact landmark.');
+    }
+  };
+
   const buildLiveEvidenceGeoTag = (finalLocation) => {
     if (!liveEvidence?.file) return null;
+    if (!liveEvidence.geoTag) return null;
 
     const finalLat = finalLocation?.lat ?? finalLocation?.coordinates?.lat ?? null;
     const finalLng = finalLocation?.lng ?? finalLocation?.coordinates?.lng ?? null;
-    const finalAddress = finalLocation?.finalAddress || finalLocation?.address || finalLocation?.displayAddress || form.location || '';
+    const finalAddress = finalLocation?.finalAddress || finalLocation?.displayAddress || finalLocation?.suggestedAddress || finalLocation?.address || form.location || '';
+    const evidenceCapturedAt = liveEvidence.geoTag?.evidenceCapturedAt || liveEvidence.geoTag?.capturedAt || new Date().toISOString();
+    const usesConfirmedComplaintLocation = liveEvidence.geoTag?.usedConfirmedComplaintLocation !== false && Boolean(finalLocation);
     const capturedGeoTag = liveEvidence.geoTag?.rawCaptureGeoTag || liveEvidence.geoTag;
     const rawCaptureGeoTag = capturedGeoTag
       ? {
@@ -462,15 +525,42 @@ export default function NewGrievance() {
         }
       : null;
 
+    if (!usesConfirmedComplaintLocation) {
+      return {
+        ...(liveEvidence.geoTag || {}),
+        evidenceCapturedAt,
+        capturedAt: evidenceCapturedAt,
+        evidenceType: 'LIVE_GEO_TAGGED',
+        usedConfirmedComplaintLocation: false,
+        confirmedFromComplaintLocation: false,
+        landmark: liveEvidence.landmark || liveEvidence.geoTag?.landmark || finalLocation?.landmark || '',
+        address: liveEvidence.geoTag?.address || '',
+        complaintLocation: finalLocation
+          ? {
+              lat: finalLat,
+              lng: finalLng,
+              accuracy: finalLocation.accuracy ?? null,
+              address: finalAddress,
+              landmark: finalLocation.landmark || '',
+            }
+          : null,
+      };
+    }
+
     return {
-      lat: finalLat ?? liveEvidence.geoTag?.lat ?? null,
-      lng: finalLng ?? liveEvidence.geoTag?.lng ?? null,
+      ...finalLocation,
+      lat: finalLat,
+      lng: finalLng,
       accuracy: finalLocation?.accuracy ?? liveEvidence.geoTag?.accuracy ?? null,
-      capturedAt: liveEvidence.geoTag?.capturedAt || new Date().toISOString(),
+      evidenceCapturedAt,
+      capturedAt: evidenceCapturedAt,
+      evidenceType: 'LIVE_GEO_TAGGED',
       source: finalLocation?.source || liveEvidence.geoTag?.source || 'GPS',
       landmark: finalLocation?.landmark || liveEvidence.landmark || liveEvidence.geoTag?.landmark || '',
       address: finalAddress || liveEvidence.geoTag?.address || '',
+      finalAddress,
       confirmedFromComplaintLocation: Boolean(finalLocation),
+      usedConfirmedComplaintLocation: true,
       rawCaptureGeoTag,
     };
   };
@@ -507,11 +597,19 @@ export default function NewGrievance() {
         ...locationFieldsRef.current,
         address: locationFieldsRef.current.address?.trim() || form.location,
       };
-      const finalLocation = buildLocationPayload(
-        fieldsForSubmit,
-        locationDetected,
-        form.locationSource || locationDetected?.source || 'Manual'
-      );
+      const finalLocation = confirmedLocation
+        ? buildLocationPayload(
+            fieldsForSubmit,
+            confirmedLocation,
+            form.locationSource || confirmedLocation.source || 'Manual',
+            { confirmedByUser: locationConfirmed || confirmedLocation.confirmedByUser }
+          )
+        : buildLocationPayload(
+            fieldsForSubmit,
+            null,
+            form.locationSource || 'Manual',
+            { confirmedByUser: locationConfirmed }
+          );
 
       const aiSuggestedCategory = aiClassification
         ? aiClassification.category || categoryFromDepartment(aiClassification.suggestedDepartment)
@@ -524,7 +622,7 @@ export default function NewGrievance() {
         privacyConsentAt: new Date().toISOString(),
         locationSource: finalLocation.source, // Include source (GPS | QR | Manual)
         locationDetected: finalLocation,
-        locationConfirmed,
+        locationConfirmed: finalLocation.confirmedByUser,
       };
 
       let res;
@@ -616,14 +714,14 @@ export default function NewGrievance() {
 
   const finalLocationPreview = buildLocationPreview(locationFields);
   const suggestedMapAddress = cleanDisplayAddress(
-    locationDetected?.mapDisplayAddress || locationDetected?.suggestedAddress || locationDetected?.address || ''
+    confirmedLocation?.mapDisplayAddress || confirmedLocation?.suggestedAddress || confirmedLocation?.displayAddress || confirmedLocation?.address || ''
   );
-  const accuracyStatus = getAccuracyStatus(locationDetected?.accuracy);
-  const gpsAccuracy = Number(locationDetected?.accuracy);
-  const mapLocalityIsApproximate = Boolean(locationDetected?.isApproximateGps || (locationDetected?.source === 'GPS' && gpsAccuracy > TRUSTED_LOCALITY_ACCURACY_METERS));
+  const accuracyStatus = getAccuracyStatus(confirmedLocation?.accuracy);
+  const gpsAccuracy = Number(confirmedLocation?.accuracy);
+  const mapLocalityIsApproximate = Boolean(confirmedLocation?.isApproximateGps || (confirmedLocation?.source === 'GPS' && gpsAccuracy > TRUSTED_LOCALITY_ACCURACY_METERS));
   // Two-level accuracy warnings
-  const showAccuracyWarning = locationDetected?.source === 'GPS' && gpsAccuracy > 50 && gpsAccuracy <= 100;
-  const showStrongAccuracyWarning = locationDetected?.source === 'GPS' && gpsAccuracy > 100;
+  const showAccuracyWarning = confirmedLocation?.source === 'GPS' && gpsAccuracy > 50 && gpsAccuracy <= 100;
+  const showStrongAccuracyWarning = confirmedLocation?.source === 'GPS' && gpsAccuracy > 100;
   const aiNeedsReview = isLowConfidenceClassification(aiClassification);
   const aiConfidencePercent = normalizeConfidencePercent(aiClassification?.confidence ?? aiClassification?.classification?.confidence);
   const aiSuggestedRoute = aiNeedsReview
@@ -828,6 +926,14 @@ export default function NewGrievance() {
                             setLocationFields(prev => {
                               const next = { ...prev, address };
                               locationFieldsRef.current = next;
+                              if (confirmedLocation) {
+                                setConfirmedLocation(current => buildLocationPayload(
+                                  next,
+                                  current || confirmedLocation,
+                                  form.locationSource || current?.source || 'Manual',
+                                  { confirmedByUser: false }
+                                ));
+                              }
                               return next;
                             });
                             setLocationConfirmed(false);
@@ -847,7 +953,7 @@ export default function NewGrievance() {
                     </div>
                   </div>
 
-                  {!locationDetected && (
+                  {!confirmedLocation && (
                     <div className="form-group">
                       <label className="form-label" htmlFor="exactLandmark">{t('grievance.exactLandmark')}</label>
                       <input
@@ -863,7 +969,7 @@ export default function NewGrievance() {
 
                   {/* Location Detection Card */}
                   <AnimatePresence>
-                    {locationDetected && (
+                    {confirmedLocation && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -877,11 +983,11 @@ export default function NewGrievance() {
                         }}
                       >
                         <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase', display: 'none' }}>
-                          {locationDetected.source === 'QR' ? '📍 Location from QR Zone' : '🛰️ Detected Location'}
+                          {confirmedLocation.source === 'QR' ? '📍 Location from QR Zone' : '🛰️ Detected Location'}
                         </h4>
                         
                         <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase' }}>
-                          {locationDetected.source === 'QR' ? 'Location from QR Zone' : 'Detected Location'}
+                          {confirmedLocation.source === 'QR' ? 'Location from QR Zone' : 'Detected Location'}
                         </h4>
 
                         <div style={{ marginBottom: '0.75rem' }}>
@@ -889,11 +995,11 @@ export default function NewGrievance() {
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem' }}>
                             <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
                               <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.latitude', "Latitude")}</p>
-                              <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(locationDetected.lat)}</p>
+                              <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(confirmedLocation.lat)}</p>
                             </div>
                             <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
                               <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.longitude', "Longitude")}</p>
-                              <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(locationDetected.lng)}</p>
+                              <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(confirmedLocation.lng)}</p>
                             </div>
                           </div>
                         </div>
@@ -901,7 +1007,7 @@ export default function NewGrievance() {
                         <div style={{ marginBottom: '0.75rem' }}>
                           <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{text('deep.accuracy', "Accuracy")}</p>
                           <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>
-                            {locationDetected.accuracy ? `${locationDetected.accuracy}m` : 'Not reported'}
+                            {confirmedLocation.accuracy ? `${confirmedLocation.accuracy}m` : 'Not reported'}
                             <span style={{ color: accuracyStatus.tone, fontWeight: 700, marginLeft: '0.5rem' }}>{accuracyStatus.label}</span>
                           </p>
                         </div>
@@ -1015,10 +1121,10 @@ export default function NewGrievance() {
                             <>
                               <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.5rem', fontWeight: 600 }}>{finalLocationPreview}</p>
                               <div style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace', lineHeight: 1.6, paddingTop: '0.375rem', borderTop: '1px dashed var(--outline-variant)' }}>
-                                <span>Lat: {formatCoordinate(locationDetected.lat)}</span>
+                                <span>Lat: {formatCoordinate(confirmedLocation.lat)}</span>
                                 <span style={{ margin: '0 0.5rem' }}>|</span>
-                                <span>Lng: {formatCoordinate(locationDetected.lng)}</span>
-                                {locationDetected.accuracy && (
+                                <span>Lng: {formatCoordinate(confirmedLocation.lng)}</span>
+                                {confirmedLocation.accuracy && (
                                   <span> | Accuracy: {Math.round(gpsAccuracy)}m</span>
                                 )}
                               </div>
@@ -1029,13 +1135,13 @@ export default function NewGrievance() {
                         </div>
 
                         <div style={{ display: 'none' }}>
-                        {locationDetected.accuracy && (
+                        {confirmedLocation.accuracy && (
                           <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>
-                            {formatAccuracy(locationDetected.accuracy)}
+                            {formatAccuracy(confirmedLocation.accuracy)}
                           </p>
                         )}
                         
-                        {locationDetected.accuracy && locationDetected.accuracy > 1000 && (
+                        {confirmedLocation.accuracy && confirmedLocation.accuracy > 1000 && (
                           <div style={{
                             padding: '0.75rem',
                             background: 'rgba(239,153,0,0.1)',
@@ -1054,18 +1160,18 @@ export default function NewGrievance() {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.75rem' }}>
                           <div>
                             <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.latitude', "Latitude")}</p>
-                            <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{locationDetected.lat}</p>
+                            <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{confirmedLocation.lat}</p>
                           </div>
                           <div>
                             <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.longitude', "Longitude")}</p>
-                            <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{locationDetected.lng}</p>
+                            <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{confirmedLocation.lng}</p>
                           </div>
                         </div>
                         
-                        {locationDetected.address && (
+                        {confirmedLocation.address && (
                           <div style={{ marginBottom: '0.75rem' }}>
                             <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{text('deep.address', "Address")}</p>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>{locationDetected.address}</p>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>{confirmedLocation.address}</p>
                           </div>
                         )}
                         
@@ -1084,7 +1190,7 @@ export default function NewGrievance() {
                             style={{ flex: '1 1 auto', minWidth: '100px' }}
                           >
                             <Edit2 size={14} style={{ marginRight: '0.25rem' }} />{text('deep.edit', "Edit")}</button>
-                          {locationDetected.source === 'GPS' && (
+                          {confirmedLocation.source === 'GPS' && (
                             <button
                               onClick={handleRedetectLocation}
                               className="btn btn-sm btn-outline"
@@ -1260,11 +1366,13 @@ export default function NewGrievance() {
                     <div>
                       <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>{t('grievance.liveEvidence')}</h3>
                       <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{text('deep.captureAFreshPh', "Capture a fresh photo from the complaint location. CivicTrust will attach GPS coordinates and timestamp for verification.")}</p>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem', lineHeight: 1.45 }}>Evidence capture will request fresh GPS. If GPS is denied, keep the photo and enter a landmark manually.</p>
                       <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>{text('deep.liveGeoTaggedCa', "Live geo-tagged capture is recommended for evidence verification.")}</p>
                     </div>
                     <LiveGeoTaggedCapture
+                      confirmedLocation={confirmedLocation}
                       onEvidenceChange={setLiveEvidence}
-                      authoritativeLocation={confirmedEvidenceLocation}
+                      onLocationCaptured={handleEvidenceLocationCaptured}
                     />
                   </div>
                 </div>
@@ -1306,7 +1414,7 @@ export default function NewGrievance() {
                           <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>
                             {Number.isFinite(Number(liveEvidence.geoTag?.lat)) && Number.isFinite(Number(liveEvidence.geoTag?.lng))
                               ? `GPS: ${Number(liveEvidence.geoTag.lat).toFixed(6)}, ${Number(liveEvidence.geoTag.lng).toFixed(6)}`
-                              : 'Photo captured, but GPS permission was denied. Please allow location or enter location manually.'}
+                              : 'Photo captured, but GPS permission was denied. Please allow location or enter landmark manually.'}
                           </p>
                         </div>
                       </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, Camera, CheckCircle, Loader2, Navigation, RefreshCw, Shield, Trash2, Video, X } from 'lucide-react';
 import { reverseGeocode } from '../../utils/locationHelper';
+import { cleanDisplayAddress } from '../../utils/cleanAddress';
 
 const GPS_OPTIONS = {
   enableHighAccuracy: true,
@@ -18,7 +19,45 @@ const getCameraConstraints = (mode, exact = false) => ({
   }
 });
 
-export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange, authoritativeLocation }) {
+const getLocationAddress = (location) => {
+  if (!location) return '';
+  const address = location.finalAddress
+    || location.displayAddress
+    || location.suggestedAddress
+    || location.address
+    || '';
+  return cleanDisplayAddress(address) || address;
+};
+
+const summarizeGeoTag = (geoTag) => (
+  geoTag
+    ? {
+        lat: geoTag.lat ?? null,
+        lng: geoTag.lng ?? null,
+        accuracy: geoTag.accuracy ?? null,
+        address: geoTag.address || '',
+        source: geoTag.source || 'GPS',
+        capturedAt: geoTag.capturedAt || geoTag.evidenceCapturedAt || null,
+      }
+    : null
+);
+
+const getAccuracyStatus = (accuracy) => {
+  const meters = Number(accuracy);
+  if (!Number.isFinite(meters)) return { label: 'Not reported', tone: 'var(--on-surface-variant)' };
+  if (meters <= 50) return { label: 'Good', tone: '#0d9488' };
+  if (meters <= 250) return { label: 'Moderate', tone: '#ef9900' };
+  return { label: 'Low', tone: '#dc2626' };
+};
+
+const formatAccuracy = (accuracy) => {
+  const meters = Number(accuracy);
+  if (!Number.isFinite(meters)) return 'N/A';
+  const status = getAccuracyStatus(meters);
+  return `${Math.round(meters)} m ${status.label}`;
+};
+
+export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChange, onStatusChange, onLocationCaptured }) {
   const [status, setStatus] = useState('idle');
   const [evidence, setEvidence] = useState(null);
   const [landmark, setLandmark] = useState('');
@@ -29,6 +68,19 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
   const [facingMode, setFacingMode] = useState('environment');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const backCameraInputRef = useRef(null);
+  const frontCameraInputRef = useRef(null);
+  const lastNativeInputRef = useRef(null);
+
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isLocalHost = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname);
+  const showHttpsWarning = typeof window !== 'undefined'
+    && window.location.protocol !== 'https:'
+    && !isLocalHost;
+  const isLikelyMobile = typeof navigator !== 'undefined'
+    && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const canUseLivePreview = typeof navigator !== 'undefined'
+    && Boolean(navigator.mediaDevices?.getUserMedia);
 
   const formatCoord = (value) => (
     value != null && Number.isFinite(Number(value)) ? Number(value).toFixed(6) : 'N/A'
@@ -49,56 +101,84 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
     }
   };
 
-  const mergeAuthoritativeLocation = useCallback((nextEvidence) => {
-    if (!nextEvidence || !authoritativeLocation) return nextEvidence;
+  const hasConfirmedLocation = Boolean(
+    confirmedLocation
+    && Number.isFinite(Number(confirmedLocation.lat ?? confirmedLocation.coordinates?.lat))
+    && Number.isFinite(Number(confirmedLocation.lng ?? confirmedLocation.coordinates?.lng))
+  );
 
-    const authoritativeLat = authoritativeLocation.lat ?? authoritativeLocation.coordinates?.lat ?? null;
-    const authoritativeLng = authoritativeLocation.lng ?? authoritativeLocation.coordinates?.lng ?? null;
-    const hasAuthoritativeCoords = Number.isFinite(Number(authoritativeLat)) && Number.isFinite(Number(authoritativeLng));
-    const authoritativeAddress = (
-      authoritativeLocation.finalAddress
-      || authoritativeLocation.address
-      || authoritativeLocation.displayAddress
-      || ''
-    ).trim();
-    const authoritativeLandmark = (authoritativeLocation.landmark || '').trim();
+  const geoTagMatchesConfirmedLocation = useCallback((geoTag) => {
+    if (!geoTag || !hasConfirmedLocation) return false;
+    const confirmedLat = Number(confirmedLocation.lat ?? confirmedLocation.coordinates?.lat);
+    const confirmedLng = Number(confirmedLocation.lng ?? confirmedLocation.coordinates?.lng);
+    const evidenceLat = Number(geoTag.lat);
+    const evidenceLng = Number(geoTag.lng);
+    return Number.isFinite(confirmedLat)
+      && Number.isFinite(confirmedLng)
+      && Number.isFinite(evidenceLat)
+      && Number.isFinite(evidenceLng)
+      && Math.abs(confirmedLat - evidenceLat) < 0.000001
+      && Math.abs(confirmedLng - evidenceLng) < 0.000001;
+  }, [confirmedLocation, hasConfirmedLocation]);
 
-    if (!hasAuthoritativeCoords && !authoritativeAddress && !authoritativeLandmark) return nextEvidence;
+  const buildConfirmedGeoTag = useCallback((rawGeoTag = {}, evidenceLandmark = '') => {
+    if (!hasConfirmedLocation) return rawGeoTag || null;
 
-    const rawGeoTag = nextEvidence.geoTag || null;
-    const rawCaptureGeoTag = rawGeoTag?.rawCaptureGeoTag || rawGeoTag;
-    const mergedGeoTag = {
+    const confirmedLat = confirmedLocation.lat ?? confirmedLocation.coordinates?.lat ?? null;
+    const confirmedLng = confirmedLocation.lng ?? confirmedLocation.coordinates?.lng ?? null;
+    const hasConfirmedCoords = Number.isFinite(Number(confirmedLat)) && Number.isFinite(Number(confirmedLng));
+    const confirmedAddress = getLocationAddress(confirmedLocation);
+    const confirmedLandmark = (confirmedLocation.landmark || evidenceLandmark || '').trim();
+    const capturedAt = rawGeoTag?.evidenceCapturedAt || rawGeoTag?.capturedAt || new Date().toISOString();
+    const rawCaptureGeoTag = rawGeoTag?.rawCaptureGeoTag
+      || (rawGeoTag?.usedConfirmedComplaintLocation === false ? summarizeGeoTag(rawGeoTag) : null);
+
+    return {
       ...(rawGeoTag || {}),
-      lat: hasAuthoritativeCoords ? Number(authoritativeLat) : rawGeoTag?.lat ?? null,
-      lng: hasAuthoritativeCoords ? Number(authoritativeLng) : rawGeoTag?.lng ?? null,
-      accuracy: authoritativeLocation.accuracy ?? rawGeoTag?.accuracy ?? null,
-      capturedAt: rawGeoTag?.capturedAt || new Date().toISOString(),
-      source: authoritativeLocation.source || rawGeoTag?.source || 'GPS',
-      address: authoritativeAddress || rawGeoTag?.address || '',
-      landmark: nextEvidence.landmark || authoritativeLandmark || rawGeoTag?.landmark || '',
+      ...confirmedLocation,
+      lat: hasConfirmedCoords ? Number(confirmedLat) : rawGeoTag?.lat ?? null,
+      lng: hasConfirmedCoords ? Number(confirmedLng) : rawGeoTag?.lng ?? null,
+      accuracy: confirmedLocation.accuracy ?? rawGeoTag?.accuracy ?? null,
+      capturedAt,
+      evidenceCapturedAt: capturedAt,
+      source: confirmedLocation.source || rawGeoTag?.source || 'GPS',
+      address: confirmedAddress || rawGeoTag?.address || '',
+      displayAddress: confirmedLocation.displayAddress || confirmedAddress || rawGeoTag?.displayAddress || '',
+      finalAddress: confirmedLocation.finalAddress || confirmedAddress || rawGeoTag?.finalAddress || '',
+      suggestedAddress: confirmedLocation.suggestedAddress || rawGeoTag?.suggestedAddress || '',
+      landmark: confirmedLandmark,
+      evidenceType: 'LIVE_GEO_TAGGED',
+      usedConfirmedComplaintLocation: true,
       confirmedFromComplaintLocation: true,
-      rawCaptureGeoTag: rawCaptureGeoTag
-        ? {
-            lat: rawCaptureGeoTag.lat ?? null,
-            lng: rawCaptureGeoTag.lng ?? null,
-            accuracy: rawCaptureGeoTag.accuracy ?? null,
-            address: rawCaptureGeoTag.address || '',
-            source: rawCaptureGeoTag.source || 'GPS',
-          }
-        : null,
+      evidenceGpsRefreshed: false,
+      rawCaptureGeoTag,
     };
+  }, [confirmedLocation, hasConfirmedLocation]);
+
+  const mergeConfirmedLocation = useCallback((nextEvidence) => {
+    if (!nextEvidence || !hasConfirmedLocation) return nextEvidence;
+    if (nextEvidence.skipConfirmedLocationMerge || nextEvidence.geoTag?.usedConfirmedComplaintLocation === false) {
+      return nextEvidence;
+    }
+    if (nextEvidence.geoTag?.evidenceGpsRefreshed && !geoTagMatchesConfirmedLocation(nextEvidence.geoTag)) {
+      return nextEvidence;
+    }
+
+    const mergedGeoTag = buildConfirmedGeoTag(nextEvidence.geoTag || {}, nextEvidence.landmark);
 
     return {
       ...nextEvidence,
-      landmark: nextEvidence.landmark || authoritativeLandmark,
+      landmark: mergedGeoTag?.landmark || nextEvidence.landmark || '',
       geoTag: mergedGeoTag,
     };
-  }, [authoritativeLocation]);
+  }, [buildConfirmedGeoTag, geoTagMatchesConfirmedLocation, hasConfirmedLocation]);
 
   useEffect(() => {
-    if (!evidence || !authoritativeLocation) return;
+    if (!evidence || !hasConfirmedLocation) return;
+    if (evidence.skipConfirmedLocationMerge || evidence.geoTag?.usedConfirmedComplaintLocation === false) return;
+    if (evidence.geoTag?.evidenceGpsRefreshed && !geoTagMatchesConfirmedLocation(evidence.geoTag)) return;
 
-    const updatedEvidence = mergeAuthoritativeLocation(evidence);
+    const updatedEvidence = mergeConfirmedLocation(evidence);
     const currentGeoTag = evidence.geoTag || {};
     const updatedGeoTag = updatedEvidence?.geoTag || {};
     const changed = (
@@ -107,17 +187,18 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
       || currentGeoTag.accuracy !== updatedGeoTag.accuracy
       || currentGeoTag.address !== updatedGeoTag.address
       || currentGeoTag.landmark !== updatedGeoTag.landmark
+      || currentGeoTag.usedConfirmedComplaintLocation !== updatedGeoTag.usedConfirmedComplaintLocation
       || evidence.landmark !== updatedEvidence?.landmark
     );
 
     if (!changed) return;
 
-    if (!landmark && updatedEvidence?.landmark) {
-      setLandmark(updatedEvidence.landmark);
+    if (landmark !== (updatedEvidence?.landmark || '')) {
+      setLandmark(updatedEvidence?.landmark || '');
     }
     setEvidence(updatedEvidence);
     onEvidenceChange?.(updatedEvidence);
-  }, [authoritativeLocation, evidence, landmark, mergeAuthoritativeLocation, onEvidenceChange]);
+  }, [evidence, geoTagMatchesConfirmedLocation, hasConfirmedLocation, landmark, mergeConfirmedLocation, onEvidenceChange]);
 
   const stopCamera = useCallback(() => {
     setVideoReady(false);
@@ -189,23 +270,32 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
     cameraStream?.getTracks?.().forEach((track) => track.stop());
   }, [cameraStream]);
 
-  const publishEvidence = (nextEvidence, nextStatus = 'preview') => {
-    const evidenceWithConfirmedLocation = mergeAuthoritativeLocation(nextEvidence);
-    if (!landmark && evidenceWithConfirmedLocation?.landmark) {
-      setLandmark(evidenceWithConfirmedLocation.landmark);
+  const publishEvidence = (nextEvidence, nextStatus = 'preview', options = {}) => {
+    const shouldUseConfirmedLocation = options.useConfirmedLocation !== false;
+    const evidenceWithConfirmedLocation = shouldUseConfirmedLocation
+      ? mergeConfirmedLocation(nextEvidence)
+      : nextEvidence;
+    if (landmark !== (evidenceWithConfirmedLocation?.landmark || '')) {
+      setLandmark(evidenceWithConfirmedLocation?.landmark || '');
     }
     setEvidence(evidenceWithConfirmedLocation);
     setStatus(nextStatus);
     onEvidenceChange?.(evidenceWithConfirmedLocation);
   };
 
-  const requestGPS = async (file, previewUrl) => {
+  const requestGPS = async (file, previewUrl, options = {}) => {
+    const refreshExisting = Boolean(options.refreshExisting);
+    const shouldUseConfirmedLocation = options.useConfirmedLocation !== false;
     setStatus('gps');
     setGpsError('');
 
     if (!navigator.geolocation) {
       setGpsError('Photo captured, but GPS is not supported by this browser. Please enter the exact landmark.');
-      publishEvidence({ file, previewUrl, geoTag: null, landmark: '' }, 'gps-denied');
+      if (refreshExisting && evidence) {
+        setStatus('preview');
+      } else {
+        publishEvidence({ file, previewUrl, geoTag: null, landmark: landmark || '', skipConfirmedLocationMerge: true }, 'gps-denied', { useConfirmedLocation: false });
+      }
       return;
     }
 
@@ -214,36 +304,119 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
         const { latitude, longitude, accuracy } = position.coords;
         const capturedAt = new Date().toISOString();
         let address = '';
+        let suggestedAddress = '';
 
         try {
           const geocoded = await reverseGeocode(latitude, longitude);
-          address = geocoded?.address || '';
+          suggestedAddress = geocoded?.address || '';
+          address = cleanDisplayAddress(suggestedAddress) || suggestedAddress;
         } catch {
           address = '';
         }
 
-        publishEvidence({
+        const nextLandmark = landmark || evidence?.landmark || confirmedLocation?.landmark || '';
+        const refreshedGeoTag = {
+          lat: latitude,
+          lng: longitude,
+          accuracy,
+          capturedAt,
+          evidenceCapturedAt: capturedAt,
+          source: 'GPS',
+          address,
+          displayAddress: address,
+          finalAddress: address,
+          suggestedAddress,
+          landmark: nextLandmark,
+          evidenceType: 'LIVE_GEO_TAGGED',
+          usedConfirmedComplaintLocation: false,
+          confirmedFromComplaintLocation: false,
+          evidenceGpsRefreshed: refreshExisting,
+          complaintLocationAccuracy: confirmedLocation?.accuracy ?? null,
+        };
+        const nextEvidence = {
           file,
           previewUrl,
-          landmark: '',
-          geoTag: {
-            lat: latitude,
-            lng: longitude,
-            accuracy,
-            capturedAt,
-            source: 'GPS',
-            address
+          landmark: nextLandmark,
+          geoTag: refreshedGeoTag,
+        };
+
+        if (refreshExisting && hasConfirmedLocation) {
+          const useAsComplaintLocation = window.confirm('Use this updated GPS as complaint location too?');
+          if (useAsComplaintLocation) {
+            onLocationCaptured?.({
+              ...refreshedGeoTag,
+              confirmedByUser: true,
+              landmark: nextLandmark,
+            });
+            publishEvidence(nextEvidence);
+            return;
           }
-        });
+        }
+
+        if (!hasConfirmedLocation) {
+          onLocationCaptured?.({
+            ...refreshedGeoTag,
+            confirmedByUser: false,
+            landmark: nextLandmark,
+          });
+        }
+
+        publishEvidence(nextEvidence, 'preview', { useConfirmedLocation: shouldUseConfirmedLocation });
       },
       (error) => {
-        const deniedMessage = 'Photo captured, but GPS permission was denied. Please allow location or enter location manually.';
+        const deniedMessage = 'Photo captured, but GPS permission was denied. Please allow location or enter landmark manually.';
         const timeoutMessage = 'Photo captured, but GPS timed out. Please retry location or enter the exact landmark.';
         setGpsError(error.code === error.TIMEOUT ? timeoutMessage : deniedMessage);
-        publishEvidence({ file, previewUrl, geoTag: null, landmark: '' }, 'gps-denied');
+        if (refreshExisting && evidence) {
+          setStatus('preview');
+        } else {
+          publishEvidence({ file, previewUrl, geoTag: null, landmark: landmark || '', skipConfirmedLocationMerge: true }, 'gps-denied', { useConfirmedLocation: false });
+        }
       },
       GPS_OPTIONS
     );
+  };
+
+  const openNativeCapture = (inputRef, mode) => {
+    stopCamera();
+    setFacingMode(mode === 'user' ? 'user' : 'environment');
+    setCameraError('');
+    setGpsError('');
+    lastNativeInputRef.current = inputRef;
+
+    try {
+      if (!inputRef.current) throw new Error('Camera input is unavailable');
+      inputRef.current?.click();
+    } catch {
+      setCameraError('Camera could not be opened. Please check browser camera permission and try again.');
+    }
+  };
+
+  const handleFileCapture = (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    input.value = '';
+
+    if (!file) return;
+
+    const isImageFile = file.type
+      ? file.type.startsWith('image/')
+      : /\.(gif|heic|heif|jpe?g|png|webp)$/i.test(file.name || '');
+
+    if (!isImageFile) {
+      setCameraError('Please choose an image file for live evidence.');
+      return;
+    }
+
+    if (evidence?.previewUrl) URL.revokeObjectURL(evidence.previewUrl);
+
+    stopCamera();
+    setStatus('capturing');
+    setCameraError('');
+    setGpsError('');
+
+    const previewUrl = URL.createObjectURL(file);
+    requestGPS(file, previewUrl, { useConfirmedLocation: false });
   };
 
   const startCamera = async (nextFacingMode = facingMode) => {
@@ -256,7 +429,7 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
     setStatus('camera-loading');
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError('Live camera capture is not supported in this browser. Please use a mobile browser or the regular evidence upload below.');
+      setCameraError('Camera could not be opened. Please check browser camera permission and try again.');
       setStatus('camera-error');
       return;
     }
@@ -279,7 +452,7 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
       setStatus('camera');
     } catch (error) {
       console.error('Camera permission error:', error);
-      setCameraError('Camera permission was denied or no camera was found. Please allow camera access and try again.');
+      setCameraError('Camera could not be opened. Please check browser camera permission and try again.');
       setStatus('camera-error');
     }
   };
@@ -330,7 +503,18 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
       const previewUrl = URL.createObjectURL(file);
 
       stopCamera();
-      requestGPS(file, previewUrl);
+      if (hasConfirmedLocation) {
+        const capturedAt = new Date().toISOString();
+        const confirmedGeoTag = buildConfirmedGeoTag({ capturedAt, evidenceCapturedAt: capturedAt }, landmark);
+        publishEvidence({
+          file,
+          previewUrl,
+          landmark: confirmedGeoTag?.landmark || landmark || '',
+          geoTag: confirmedGeoTag,
+        });
+      } else {
+        requestGPS(file, previewUrl);
+      }
     }, 'image/jpeg', 0.92);
   };
 
@@ -346,14 +530,28 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
     };
     setEvidence(updatedEvidence);
     onEvidenceChange?.(updatedEvidence);
+
+    if (evidence.geoTag || confirmedLocation) {
+      onLocationCaptured?.({
+        ...(confirmedLocation || evidence.geoTag || {}),
+        landmark: value,
+        confirmedByUser: confirmedLocation?.confirmedByUser ?? false,
+      });
+    }
   };
 
   const handleRetake = () => {
+    const nativeInputRef = lastNativeInputRef.current;
     if (evidence?.previewUrl) URL.revokeObjectURL(evidence.previewUrl);
     setEvidence(null);
     setLandmark('');
     setGpsError('');
     onEvidenceChange?.(null);
+    if (nativeInputRef) {
+      setStatus('idle');
+      openNativeCapture(nativeInputRef, nativeInputRef === frontCameraInputRef ? 'user' : 'environment');
+      return;
+    }
     startCamera(facingMode);
   };
 
@@ -378,6 +576,13 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
     };
     setEvidence(updatedEvidence);
     onEvidenceChange?.(updatedEvidence);
+    if (evidence.geoTag || confirmedLocation) {
+      onLocationCaptured?.({
+        ...(confirmedLocation || evidence.geoTag || {}),
+        landmark,
+        confirmedByUser: confirmedLocation?.confirmedByUser ?? false,
+      });
+    }
   };
 
   const handleCameraModeChange = (mode) => {
@@ -385,39 +590,94 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
     startCamera(mode);
   };
 
+  const handleRefreshEvidenceGps = () => {
+    if (!evidence?.file || !evidence?.previewUrl) return;
+    requestGPS(evidence.file, evidence.previewUrl, { refreshExisting: true });
+  };
+
+  const evidenceUsesConfirmedLocation = Boolean(evidence?.geoTag?.usedConfirmedComplaintLocation);
+  const evidenceGpsRefreshedSeparately = Boolean(evidence?.geoTag?.evidenceGpsRefreshed && !evidenceUsesConfirmedLocation);
   const showAccuracyWarning = evidence?.geoTag?.accuracy != null && evidence.geoTag.accuracy > 100;
+  const evidenceAccuracyStatus = getAccuracyStatus(evidence?.geoTag?.accuracy);
+  const complaintAccuracyStatus = getAccuracyStatus(confirmedLocation?.accuracy);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
+      <input
+        ref={backCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileCapture}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={frontCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={handleFileCapture}
+        style={{ display: 'none' }}
+      />
+      {showHttpsWarning && (
+        <div style={httpsWarningStyle}>
+          <AlertCircle size={13} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+          <span>Camera and location may not work unless the site is opened over HTTPS.</span>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {status === 'idle' && (
-          <motion.div key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <button
-              type="button"
-              id="liveGeoCaptureBtn"
-              onClick={() => startCamera(facingMode)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.625rem',
-                width: '100%',
-                padding: '0.875rem 1.25rem',
-                background: 'linear-gradient(135deg, rgba(20,184,166,0.12), rgba(30,58,138,0.12))',
-                border: '2px dashed rgba(20,184,166,0.45)',
-                borderRadius: 'var(--radius-md)',
-                cursor: 'pointer',
-                color: 'var(--primary)',
-                fontWeight: 700,
-                fontSize: '0.9375rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <Camera size={20} />
-              Capture Live Geo-Tagged Evidence
-            </button>
+          <motion.div key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={nativeCapturePanelStyle}>
+            <div style={nativeCaptureButtonRowStyle}>
+              <button
+                type="button"
+                id="liveGeoBackCameraBtn"
+                className="btn btn-primary btn-sm"
+                onClick={() => openNativeCapture(backCameraInputRef, 'environment')}
+                style={nativeCaptureButtonStyle}
+              >
+                <Camera size={14} />
+                Back Camera
+              </button>
+              <button
+                type="button"
+                id="liveGeoFrontCameraBtn"
+                className="btn btn-secondary btn-sm"
+                onClick={() => openNativeCapture(frontCameraInputRef, 'user')}
+                style={nativeCaptureButtonStyle}
+              >
+                <Camera size={14} />
+                Front Camera
+              </button>
+            </div>
+            <p style={mobileCaptureHelperStyle}>
+              On mobile, camera opens through your browser. Please allow camera and location permission.
+            </p>
+            {cameraError && (
+              <div style={idleCameraErrorStyle}>
+                <AlertCircle size={13} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+                <span>{cameraError}</span>
+              </div>
+            )}
+            {canUseLivePreview && !isLikelyMobile && (
+              <button
+                type="button"
+                id="liveGeoDesktopPreviewBtn"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  lastNativeInputRef.current = null;
+                  startCamera(facingMode);
+                }}
+                style={desktopPreviewButtonStyle}
+              >
+                <Video size={14} />
+                Desktop Live Preview
+              </button>
+            )}
           </motion.div>
         )}
 
@@ -552,26 +812,49 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
                   borderRadius: '4px',
                   letterSpacing: '0.05em'
                 }}>
-                  {status === 'preview' ? 'LIVE GPS' : 'LIVE PHOTO'}
+                  {evidenceUsesConfirmedLocation ? 'CONFIRMED GPS' : status === 'preview' ? 'LIVE GPS' : 'LIVE PHOTO'}
                 </div>
               </div>
 
               <div style={{ padding: '0.875rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {evidence.geoTag ? (
                   <>
+                    {evidenceUsesConfirmedLocation && (
+                      <div style={confirmedBadgeStyle}>
+                        <CheckCircle size={12} />
+                        <span>Using confirmed complaint location</span>
+                      </div>
+                    )}
+                    {evidenceGpsRefreshedSeparately && (
+                      <div style={separateGpsBadgeStyle}>
+                        <Navigation size={12} />
+                        <span>Evidence GPS refreshed separately</span>
+                      </div>
+                    )}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.375rem', fontSize: '0.75rem' }}>
                       <MetaBox label="Latitude" value={formatCoord(evidence.geoTag.lat)} />
                       <MetaBox label="Longitude" value={formatCoord(evidence.geoTag.lng)} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.375rem', fontSize: '0.6875rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--on-surface-variant)' }}>
-                        <Navigation size={11} />
-                        <span>
-                          Accuracy: <strong style={{ color: evidence.geoTag.accuracy > 100 ? '#ef9900' : '#0d9488' }}>
-                            {evidence.geoTag.accuracy != null ? `${Math.round(evidence.geoTag.accuracy)} m` : 'N/A'}
-                          </strong>
-                        </span>
-                      </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: evidenceGpsRefreshedSeparately ? '1fr' : '1fr 1fr', gap: '0.375rem', fontSize: '0.6875rem' }}>
+                      {evidenceGpsRefreshedSeparately && hasConfirmedLocation ? (
+                        <div style={{ color: 'var(--on-surface-variant)', lineHeight: 1.55 }}>
+                          <p>
+                            Complaint Location Accuracy: <strong style={{ color: complaintAccuracyStatus.tone }}>{formatAccuracy(confirmedLocation?.accuracy)}</strong>
+                          </p>
+                          <p>
+                            Evidence Capture Accuracy: <strong style={{ color: evidenceAccuracyStatus.tone }}>{formatAccuracy(evidence.geoTag.accuracy)}</strong>
+                          </p>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--on-surface-variant)' }}>
+                          <Navigation size={11} />
+                          <span>
+                            Accuracy: <strong style={{ color: evidenceAccuracyStatus.tone }}>
+                              {formatAccuracy(evidence.geoTag.accuracy)}
+                            </strong>
+                          </span>
+                        </div>
+                      )}
                       <div style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)' }}>
                         {formatDate(evidence.geoTag.capturedAt)}
                       </div>
@@ -624,6 +907,10 @@ export default function LiveGeoTaggedCapture({ onEvidenceChange, onStatusChange,
               <button type="button" id="liveEvidenceRetakeBtn" onClick={handleRetake} className="btn btn-sm btn-outline">
                 <RefreshCw size={13} />
                 Retake Photo
+              </button>
+              <button type="button" id="liveEvidenceRefreshGpsBtn" onClick={handleRefreshEvidenceGps} className="btn btn-sm btn-outline">
+                <Navigation size={13} />
+                Refresh GPS for Evidence
               </button>
               <button type="button" id="liveEvidenceUseBtn" onClick={handleUse} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
                 <CheckCircle size={13} />
@@ -694,6 +981,42 @@ const previewCardStyle = {
   ...cameraCardStyle
 };
 
+const nativeCapturePanelStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.625rem',
+  padding: '0.875rem',
+  background: 'linear-gradient(135deg, rgba(20,184,166,0.08), rgba(30,58,138,0.06))',
+  border: '1px solid rgba(20,184,166,0.18)',
+  borderRadius: 'var(--radius-md)'
+};
+
+const nativeCaptureButtonRowStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 8rem), 1fr))',
+  gap: '0.5rem'
+};
+
+const nativeCaptureButtonStyle = {
+  minHeight: '2.25rem',
+  justifyContent: 'center',
+  whiteSpace: 'normal',
+  lineHeight: 1.2
+};
+
+const mobileCaptureHelperStyle = {
+  margin: 0,
+  fontSize: '0.75rem',
+  color: 'var(--on-surface-variant)',
+  lineHeight: 1.45
+};
+
+const desktopPreviewButtonStyle = {
+  width: 'fit-content',
+  paddingInline: '0.25rem',
+  color: 'var(--primary)'
+};
+
 const cameraPendingOverlayStyle = {
   position: 'absolute',
   inset: 0,
@@ -760,6 +1083,32 @@ const errorBoxStyle = {
   lineHeight: 1.45
 };
 
+const idleCameraErrorStyle = {
+  display: 'flex',
+  gap: '0.5rem',
+  alignItems: 'flex-start',
+  padding: '0.625rem 0.75rem',
+  background: 'rgba(239,68,68,0.06)',
+  border: '1px solid rgba(239,68,68,0.18)',
+  borderRadius: 'var(--radius-sm)',
+  color: '#b91c1c',
+  fontSize: '0.75rem',
+  lineHeight: 1.4
+};
+
+const httpsWarningStyle = {
+  display: 'flex',
+  gap: '0.5rem',
+  alignItems: 'flex-start',
+  padding: '0.625rem 0.75rem',
+  background: 'rgba(239,153,0,0.08)',
+  border: '1px solid rgba(239,153,0,0.2)',
+  borderRadius: 'var(--radius-sm)',
+  color: '#9a5f00',
+  fontSize: '0.75rem',
+  lineHeight: 1.4
+};
+
 const gpsMissingStyle = {
   padding: '0.5rem',
   background: 'rgba(239,68,68,0.06)',
@@ -779,6 +1128,25 @@ const warningBoxStyle = {
   fontSize: '0.75rem',
   color: '#9a5f00',
   lineHeight: 1.4
+};
+
+const confirmedBadgeStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.35rem',
+  width: 'fit-content',
+  padding: '0.25rem 0.5rem',
+  borderRadius: '999px',
+  background: 'rgba(20,184,166,0.12)',
+  color: '#0f766e',
+  fontSize: '0.6875rem',
+  fontWeight: 800
+};
+
+const separateGpsBadgeStyle = {
+  ...confirmedBadgeStyle,
+  background: 'rgba(239,153,0,0.12)',
+  color: '#9a5f00'
 };
 
 const gpsErrorStyle = {
