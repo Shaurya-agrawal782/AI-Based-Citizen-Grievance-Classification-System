@@ -54,7 +54,7 @@ const grievanceUpload = multer({
 
 const parseGrievanceUpload = (req, res, next) => {
   grievanceUpload.fields([
-    { name: 'liveEvidence', maxCount: 1 },
+    { name: 'liveEvidence', maxCount: 3 },
     { name: 'images', maxCount: 8 }
   ])(req, res, (error) => {
     if (!error) return next();
@@ -161,6 +161,31 @@ const firstNumber = (...values) => {
     if (number !== undefined) return number;
   }
   return undefined;
+};
+
+const normalizeEvidenceAuthenticity = (rawAuthenticity, rawGeoTag, evidenceCount = 0) => {
+  if (!rawAuthenticity || typeof rawAuthenticity !== 'object') return undefined;
+
+  const score = toNumberOrUndefined(rawAuthenticity.score);
+  return {
+    score,
+    status: cleanString(rawAuthenticity.status) || undefined,
+    riskLevel: cleanString(rawAuthenticity.riskLevel) || undefined,
+    signals: Array.isArray(rawAuthenticity.signals) ? rawAuthenticity.signals.map(cleanString).filter(Boolean) : [],
+    warnings: Array.isArray(rawAuthenticity.warnings) ? rawAuthenticity.warnings.map(cleanString).filter(Boolean) : [],
+    challengePrompt: cleanString(rawAuthenticity.challengePrompt) || undefined,
+    challengeCompleted: toBooleanOrUndefined(rawAuthenticity.challengeCompleted) ?? false,
+    usedLiveCamera: toBooleanOrUndefined(rawAuthenticity.usedLiveCamera) ?? true,
+    // TODO: query existing evidenceFingerprint values and set duplicateRisk=true when a repeat is found.
+    duplicateRisk: toBooleanOrUndefined(rawAuthenticity.duplicateRisk) ?? false,
+    aiRelevance: cleanString(rawAuthenticity.aiRelevance) || 'Pending',
+    screenSpoofRisk: cleanString(rawAuthenticity.screenSpoofRisk) || undefined,
+    spoofScore: toNumberOrUndefined(rawAuthenticity.spoofScore),
+    spoofSignals: Array.isArray(rawAuthenticity.spoofSignals) ? rawAuthenticity.spoofSignals.map(cleanString).filter(Boolean) : [],
+    spoofWarnings: Array.isArray(rawAuthenticity.spoofWarnings) ? rawAuthenticity.spoofWarnings.map(cleanString).filter(Boolean) : [],
+    evidenceCount: toNumberOrUndefined(rawAuthenticity.evidenceCount) ?? evidenceCount,
+    geoTag: rawGeoTag || undefined
+  };
 };
 
 // Get dashboard statistics
@@ -369,7 +394,7 @@ router.post('/', auth, parseGrievanceUpload, async (req, res) => {
     // --- Live geo-tagged evidence: upload files to Cloudinary if present ---
     const uploadedEvidenceImages = [];
     const uploadedAttachments = [];
-    const liveEvidenceFile = req.files?.liveEvidence?.[0];
+    const liveEvidenceFiles = req.files?.liveEvidence || [];
     const uploadedFiles = req.files?.images || [];
 
     // Parse the geoTag JSON sent alongside the file upload
@@ -379,6 +404,15 @@ router.post('/', auth, parseGrievanceUpload, async (req, res) => {
         parsedGeoTag = JSON.parse(req.body.liveEvidenceGeoTag);
       } catch (_) {
         // Malformed JSON — ignore, still allow submission
+      }
+    }
+
+    let parsedAuthenticity = null;
+    if (req.body.evidenceAuthenticity) {
+      try {
+        parsedAuthenticity = JSON.parse(req.body.evidenceAuthenticity);
+      } catch (_) {
+        // Malformed JSON, ignore and still allow submission.
       }
     }
 
@@ -392,7 +426,14 @@ router.post('/', auth, parseGrievanceUpload, async (req, res) => {
       address: cleanString(parsedGeoTag.address) || ''
     } : undefined;
 
-    if (liveEvidenceFile) {
+    const normalizedAuthenticity = normalizeEvidenceAuthenticity(
+      parsedAuthenticity,
+      normalizedLiveGeoTag,
+      liveEvidenceFiles.length
+    );
+    const evidenceFingerprint = cleanString(req.body.evidenceFingerprint) || '';
+
+    for (const [index, liveEvidenceFile] of liveEvidenceFiles.entries()) {
       const uploaded = await uploadEvidenceImage(liveEvidenceFile, 'civictrust/grievances/live-evidence', req);
       uploadedEvidenceImages.push({
         url: uploaded.url,
@@ -403,7 +444,17 @@ router.post('/', auth, parseGrievanceUpload, async (req, res) => {
         uploadedAt: uploaded.uploadedAt || new Date(),
         evidenceType: 'LIVE_GEO_TAGGED',
         verifiedLiveCapture: true,
-        geoTag: normalizedLiveGeoTag
+        evidenceFingerprint,
+        geoTag: normalizedLiveGeoTag,
+        authenticity: normalizedAuthenticity
+          ? {
+              ...normalizedAuthenticity,
+              signals: [
+                ...(normalizedAuthenticity.signals || []),
+                liveEvidenceFiles.length > 1 ? `Frame ${index + 1} of ${liveEvidenceFiles.length}` : 'Single live evidence frame'
+              ]
+            }
+          : undefined
       });
       uploadedAttachments.push({
         filename: liveEvidenceFile.originalname,

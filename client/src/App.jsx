@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import Navbar from './components/Navbar';
 import AIAssistant from './components/AIAssistant';
+import AppErrorBoundary from './components/common/AppErrorBoundary';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import CitizenDashboard from './pages/CitizenDashboard';
@@ -102,11 +103,13 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <LanguageProvider>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </LanguageProvider>
+      <AppErrorBoundary>
+        <LanguageProvider>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </LanguageProvider>
+      </AppErrorBoundary>
     </BrowserRouter>
   );
 }

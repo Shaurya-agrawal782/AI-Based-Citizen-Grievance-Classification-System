@@ -9,9 +9,10 @@ import VoiceComplaintInput from '../components/citizen/VoiceComplaintInput';
 import GrievanceCopilot from '../components/citizen/GrievanceCopilot';
 import LiveGeoTaggedCapture from '../components/citizen/LiveGeoTaggedCapture';
 import { qrZones } from '../data/qrZones';
-import { detectGPSLocation, reverseGeocode, formatAccuracy, getQRContext, setQRContext, clearQRContext } from '../utils/locationHelper';
+import { detectGPSLocation, reverseGeocode, getQRContext, setQRContext, clearQRContext } from '../utils/locationHelper';
 import { watermarkImage } from '../utils/watermarkEvidenceImage';
 import { cleanDisplayAddress } from '../utils/cleanAddress';
+import { buildEvidenceFingerprintBundle } from '../utils/evidenceAuthenticity';
 import {
   buildNeedsReviewClassification,
   categoryFromDepartment,
@@ -359,22 +360,8 @@ export default function NewGrievance() {
     if (confirmedLocation) {
       const fields = locationFieldsRef.current;
       const hasLandmark = Boolean(fields.landmark?.trim());
-      const hasArea = Boolean(fields.area?.trim());
-      const hasPincode = Boolean(fields.pincode?.trim());
-      const needsAreaConfirmation = confirmedLocation.isApproximateGps || Number(confirmedLocation.accuracy) > TRUSTED_LOCALITY_ACCURACY_METERS;
 
-      const warnings = [];
-      if (needsAreaConfirmation && !hasArea) warnings.push('Please enter your actual area/locality.');
-      if (!hasLandmark) warnings.push('Please add an exact landmark for faster routing.');
-      if (!hasPincode) warnings.push('Please confirm pincode if available.');
-
-      if (warnings.length > 0) {
-        setLocationWarning(warnings.join(' '));
-        if ((needsAreaConfirmation && !hasArea) || !hasLandmark) setShowLocationEdit(true);
-      } else {
-        setLocationWarning(null);
-        setShowLocationEdit(false);
-      }
+      setLocationWarning(hasLandmark ? null : 'Landmark recommended for better routing.');
 
       setForm(prev => ({
         ...prev,
@@ -388,7 +375,7 @@ export default function NewGrievance() {
   };
 
   const handleEditLocation = () => {
-    setShowLocationEdit(true);
+    setShowLocationEdit(prev => !prev);
   };
 
   const handleSaveManualLocation = () => {
@@ -591,6 +578,16 @@ export default function NewGrievance() {
       if (!window.confirm(warning)) return;
     }
 
+    if (hasLiveEvidence && Number(liveEvidence?.authenticity?.score) < 50) {
+      const continueWithReview = window.confirm('This evidence may need manual verification. Continue submitting?');
+      if (!continueWithReview) return;
+    }
+
+    if (hasLiveEvidence && liveEvidence?.authenticity?.screenSpoofRisk === 'High') {
+      const continueWithSpoofRisk = window.confirm('Possible screen/photo replay detected. This evidence may need manual verification. Continue submitting?');
+      if (!continueWithSpoofRisk) return;
+    }
+
     setLoading(true);
     try {
       const fieldsForSubmit = {
@@ -632,16 +629,33 @@ export default function NewGrievance() {
         appendPayloadToFormData(formData, payload);
 
         const liveGeoTag = buildLiveEvidenceGeoTag(finalLocation);
-        let liveFile = liveEvidence.file;
+        const evidenceFiles = liveEvidence.files?.length ? liveEvidence.files : [liveEvidence.file];
+        const evidenceAuthenticity = {
+          ...(liveEvidence.authenticity || {}),
+          challengePrompt: liveEvidence.challengePrompt || liveEvidence.authenticity?.challengePrompt || '',
+          challengeCompleted: Boolean(liveEvidence.challengeCompleted || liveEvidence.authenticity?.challengeCompleted),
+          usedLiveCamera: liveEvidence.usedLiveCamera ?? liveEvidence.authenticity?.usedLiveCamera ?? true,
+          evidenceCount: evidenceFiles.length,
+          geoTag: liveGeoTag,
+          screenSpoofRisk: liveEvidence.screenSpoofRisk || liveEvidence.authenticity?.screenSpoofRisk || 'Low',
+          spoofScore: liveEvidence.spoofScore ?? liveEvidence.authenticity?.spoofScore ?? 0,
+          spoofSignals: liveEvidence.spoofSignals || liveEvidence.authenticity?.spoofSignals || [],
+          spoofWarnings: liveEvidence.spoofWarnings || liveEvidence.authenticity?.spoofWarnings || [],
+        };
 
-        try {
-          liveFile = await watermarkImage(liveEvidence.file, liveGeoTag, liveGeoTag?.landmark || '');
-        } catch (error) {
-          console.warn('Evidence watermarking skipped:', error);
+        for (const [index, evidenceFile] of evidenceFiles.entries()) {
+          let liveFile = evidenceFile;
+          try {
+            liveFile = await watermarkImage(evidenceFile, liveGeoTag, liveGeoTag?.landmark || '');
+          } catch (error) {
+            console.warn('Evidence watermarking skipped:', error);
+          }
+
+          formData.append('liveEvidence', liveFile, liveFile.name || evidenceFile.name || `live-evidence-${index + 1}.jpg`);
         }
-
-        formData.append('liveEvidence', liveFile, liveFile.name || liveEvidence.file.name || 'live-evidence.jpg');
         formData.append('liveEvidenceGeoTag', JSON.stringify(liveGeoTag));
+        formData.append('evidenceAuthenticity', JSON.stringify(evidenceAuthenticity));
+        formData.append('evidenceFingerprint', liveEvidence.evidenceFingerprint || buildEvidenceFingerprintBundle(evidenceFiles));
         res = await grievanceAPI.create(formData);
       } else {
         res = await grievanceAPI.create(payload);
@@ -718,10 +732,23 @@ export default function NewGrievance() {
   );
   const accuracyStatus = getAccuracyStatus(confirmedLocation?.accuracy);
   const gpsAccuracy = Number(confirmedLocation?.accuracy);
-  const mapLocalityIsApproximate = Boolean(confirmedLocation?.isApproximateGps || (confirmedLocation?.source === 'GPS' && gpsAccuracy > TRUSTED_LOCALITY_ACCURACY_METERS));
-  // Two-level accuracy warnings
-  const showAccuracyWarning = confirmedLocation?.source === 'GPS' && gpsAccuracy > 50 && gpsAccuracy <= 100;
-  const showStrongAccuracyWarning = confirmedLocation?.source === 'GPS' && gpsAccuracy > 100;
+  const locationMainAddress = cleanDisplayAddress(
+    confirmedLocation?.finalAddress
+    || confirmedLocation?.displayAddress
+    || confirmedLocation?.address
+    || suggestedMapAddress
+    || form.location
+    || ''
+  );
+  const hasEditedLocationDetails = Boolean(
+    locationFields.landmark?.trim()
+    || locationFields.pincode?.trim()
+    || locationFields.area?.trim()
+  );
+  const showFinalLocationPreview = showLocationEdit || hasEditedLocationDetails;
+  const compactLocationWarning = locationWarning
+    || (Number.isFinite(gpsAccuracy) && gpsAccuracy > 80 ? 'Location is approximate. Add landmark for better routing.' : '');
+  const locationAccuracyText = Number.isFinite(gpsAccuracy) ? `${Math.round(gpsAccuracy)}m` : 'Not reported';
   const aiNeedsReview = isLowConfidenceClassification(aiClassification);
   const aiConfidencePercent = normalizeConfidencePercent(aiClassification?.confidence ?? aiClassification?.classification?.confidence);
   const aiSuggestedRoute = aiNeedsReview
@@ -975,230 +1002,144 @@ export default function NewGrievance() {
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         style={{
-                          padding: '1rem',
-                          background: 'linear-gradient(135deg, rgba(14,165,164,0.08), rgba(30,58,138,0.08))',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1px solid rgba(14,165,164,0.2)',
+                          padding: 'clamp(1rem, 2vw, 1.25rem)',
+                          background: 'rgba(236,254,255,0.46)',
+                          borderRadius: '1rem',
+                          border: '1px solid rgba(14,165,164,0.16)',
                           marginBottom: '1rem',
+                          boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
                         }}
                       >
-                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase', display: 'none' }}>
-                          {confirmedLocation.source === 'QR' ? '📍 Location from QR Zone' : '🛰️ Detected Location'}
-                        </h4>
-                        
-                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase' }}>
-                          {confirmedLocation.source === 'QR' ? 'Location from QR Zone' : 'Detected Location'}
-                        </h4>
-
-                        <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem' }}>{text('deep.gPSCoordinates', "GPS Coordinates")}</p>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.75rem' }}>
-                            <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
-                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.latitude', "Latitude")}</p>
-                              <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(confirmedLocation.lat)}</p>
-                            </div>
-                            <div style={{ padding: '0.625rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.15)' }}>
-                              <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.longitude', "Longitude")}</p>
-                              <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{formatCoordinate(confirmedLocation.lng)}</p>
-                            </div>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.65rem' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <h4 style={{ fontSize: '0.82rem', fontWeight: 900, marginBottom: '0.35rem', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              {confirmedLocation.source === 'QR' ? 'Location from QR Zone' : 'Detected Location'}
+                            </h4>
+                            <p style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--on-surface)', lineHeight: 1.35, overflowWrap: 'anywhere' }}>
+                              {locationMainAddress || 'Address not available'}
+                            </p>
                           </div>
-                        </div>
-
-                        <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{text('deep.accuracy', "Accuracy")}</p>
-                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>
-                            {confirmedLocation.accuracy ? `${confirmedLocation.accuracy}m` : 'Not reported'}
-                            <span style={{ color: accuracyStatus.tone, fontWeight: 700, marginLeft: '0.5rem' }}>{accuracyStatus.label}</span>
-                          </p>
-                        </div>
-
-                        {/* Part D: Two-level accuracy warnings */}
-                        {showAccuracyWarning && (
-                          <div style={{
-                            padding: '0.75rem',
-                            background: 'rgba(239,153,0,0.08)',
-                            border: '1px solid rgba(239,153,0,0.2)',
-                            borderRadius: 'var(--radius-sm)',
-                            marginBottom: '0.75rem',
-                            display: 'flex',
-                            gap: '0.5rem',
-                            alignItems: 'flex-start',
-                          }}>
-                            <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>{text('deep.gPSIsApproximat', "GPS is approximate. Please add exact landmark and pincode for better routing.")}</span>
-                          </div>
-                        )}
-                        {showStrongAccuracyWarning && (
-                          <div style={{
-                            padding: '0.75rem',
-                            background: 'rgba(239,100,0,0.1)',
-                            border: '1px solid rgba(239,100,0,0.3)',
-                            borderRadius: 'var(--radius-sm)',
-                            marginBottom: '0.75rem',
-                            display: 'flex',
-                            gap: '0.5rem',
-                            alignItems: 'flex-start',
-                          }}>
-                            <AlertTriangle size={14} color="#e65100" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#b34000', fontWeight: 600 }}>{text('deep.locationAccurac', "Location accuracy is moderate/low. Manual confirmation is recommended.")}</span>
-                          </div>
-                        )}
-
-                        {/* Suggested map address */}
-                        <div style={{ marginBottom: '0.75rem' }}>
-                          <p style={{ color: 'var(--on-surface-variant)', fontWeight: 700, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{text('deep.suggestedAddres', "Suggested Address from Map")}</p>
-                          <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.25rem' }}>{suggestedMapAddress || 'Address not available'}</p>
-                          <p style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic', lineHeight: 1.4 }}>
-                            {mapLocalityIsApproximate
-                              ? 'GPS accuracy is approximate, so nearby locality names from the map may be wrong. Enter your actual area/locality and landmark below.'
-                              : text('deep.administrativeA', "Administrative areas like Huzur Tahsil may appear from map data. Please confirm exact landmark for accurate routing.")}
-                          </p>
-                        </div>
-
-                        {/* Part B: Landmark field in location card */}
-                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                          <label className="form-label" htmlFor="detectedArea">Area / Locality</label>
-                          <input
-                            id="detectedArea"
-                            className="form-input"
-                            type="text"
-                            value={locationFields.area}
-                            onChange={e => updateLocationFields({ area: e.target.value })}
-                            placeholder="Example: Anand Nagar"
-                          />
-                        </div>
-
-                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                          <label className="form-label" htmlFor="detectedLandmark">{t('grievance.exactLandmark')}</label>
-                          <input
-                            id="detectedLandmark"
-                            className="form-input"
-                            type="text"
-                            value={locationFields.landmark}
-                            onChange={e => updateLocationFields({ landmark: e.target.value })}
-                            placeholder="Example: Bansal College Main Gate, Anand Nagar"
-                          />
-                        </div>
-
-                        {/* Part B: Quick pincode confirmation in location card */}
-                        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                          <label className="form-label" htmlFor="quickPincode">{t('grievance.confirmPincode')}</label>
-                          <input
-                            id="quickPincode"
-                            className="form-input"
-                            type="text"
-                            inputMode="numeric"
-                            value={locationFields.pincode}
-                            onChange={e => updateLocationFields({ pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
-                            placeholder="Example: 462022"
-                            maxLength={6}
-                          />
-                          {locationFields.pincode && !/^\d{6}$/.test(locationFields.pincode) && (
-                            <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>{text('deep.EnterAValid6Dig', "Enter a valid 6-digit Indian pincode.")}</p>
+                          {locationConfirmed && (
+                            <span className="badge badge-resolved" style={{ flexShrink: 0 }}>
+                              Confirmed
+                            </span>
                           )}
                         </div>
 
-                        {locationWarning && (
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', color: 'var(--on-surface-variant)', fontSize: '0.74rem', lineHeight: 1.45, marginBottom: compactLocationWarning ? '0.65rem' : '0.85rem' }}>
+                          <span>Lat: {formatCoordinate(confirmedLocation.lat)}</span>
+                          <span>|</span>
+                          <span>Lng: {formatCoordinate(confirmedLocation.lng)}</span>
+                          <span>|</span>
+                          <span>Accuracy: {locationAccuracyText}</span>
+                          <span>|</span>
+                          <span style={{ color: accuracyStatus.tone, fontWeight: 800 }}>{accuracyStatus.label}</span>
+                        </div>
+
+                        {compactLocationWarning && (
                           <div style={{
-                            padding: '0.75rem',
-                            background: 'rgba(239,153,0,0.1)',
-                            border: '1px solid rgba(239,153,0,0.2)',
-                            borderRadius: 'var(--radius-sm)',
-                            marginBottom: '0.75rem',
+                            padding: '0.55rem 0.65rem',
+                            background: 'rgba(245,158,11,0.1)',
+                            border: '1px solid rgba(245,158,11,0.2)',
+                            borderRadius: '0.65rem',
+                            marginBottom: '0.85rem',
                             display: 'flex',
-                            gap: '0.5rem',
+                            gap: '0.45rem',
                             alignItems: 'flex-start',
                           }}>
-                            <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#9a5f00' }}>{locationWarning}</span>
+                            <AlertCircle size={13} color="#b45309" style={{ marginTop: '0.08rem', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.75rem', color: '#9a5f00', lineHeight: 1.4 }}>{compactLocationWarning}</span>
                           </div>
                         )}
 
-                        {/* Part C: Final Location Preview with GPS coords */}
-                        <div style={{ padding: '0.75rem', background: 'var(--surface-container-lowest)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.2)' }}>
-                          <p style={{ color: 'var(--primary)', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('grievance.finalPreview')}</p>
-                          {finalLocationPreview ? (
-                            <>
-                              <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)', lineHeight: 1.5, marginBottom: '0.5rem', fontWeight: 600 }}>{finalLocationPreview}</p>
-                              <div style={{ fontSize: '0.6875rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace', lineHeight: 1.6, paddingTop: '0.375rem', borderTop: '1px dashed var(--outline-variant)' }}>
-                                <span>Lat: {formatCoordinate(confirmedLocation.lat)}</span>
-                                <span style={{ margin: '0 0.5rem' }}>|</span>
-                                <span>Lng: {formatCoordinate(confirmedLocation.lng)}</span>
-                                {confirmedLocation.accuracy && (
-                                  <span> | Accuracy: {Math.round(gpsAccuracy)}m</span>
-                                )}
-                              </div>
-                            </>
-                          ) : (
-                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', fontStyle: 'italic' }}>{text('deep.addLandmarkAndC', "Add landmark and confirm pincode to preview final location.")}</p>
-                          )}
-                        </div>
-
-                        <div style={{ display: 'none' }}>
-                        {confirmedLocation.accuracy && (
-                          <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem' }}>
-                            {formatAccuracy(confirmedLocation.accuracy)}
-                          </p>
-                        )}
-                        
-                        {confirmedLocation.accuracy && confirmedLocation.accuracy > 1000 && (
-                          <div style={{
-                            padding: '0.75rem',
-                            background: 'rgba(239,153,0,0.1)',
-                            border: '1px solid rgba(239,153,0,0.2)',
-                            borderRadius: 'var(--radius-sm)',
-                            marginBottom: '0.75rem',
-                            display: 'flex',
-                            gap: '0.5rem',
-                            alignItems: 'flex-start',
-                          }}>
-                            <AlertCircle size={14} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', color: '#ef9900' }}>{text('deep.locationAccuracx', "Location accuracy is low. Please confirm or edit before submitting.")}</span>
-                          </div>
-                        )}
-                        
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.75rem' }}>
-                          <div>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.latitude', "Latitude")}</p>
-                            <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{confirmedLocation.lat}</p>
-                          </div>
-                          <div>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem' }}>{text('deep.longitude', "Longitude")}</p>
-                            <p style={{ fontFamily: 'monospace', color: 'var(--on-surface)' }}>{confirmedLocation.lng}</p>
-                          </div>
-                        </div>
-                        
-                        {confirmedLocation.address && (
-                          <div style={{ marginBottom: '0.75rem' }}>
-                            <p style={{ color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '0.25rem', fontSize: '0.75rem' }}>{text('deep.address', "Address")}</p>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--on-surface)' }}>{confirmedLocation.address}</p>
-                          </div>
-                        )}
-                        
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr))', gap: '0.5rem' }}>
                           <button
                             onClick={handleUseDetectedLocation}
                             className="btn btn-sm btn-primary"
-                            style={{ flex: '1 1 auto', minWidth: '120px' }}
+                            style={{ justifyContent: 'center' }}
                           >
-                            <Check size={14} style={{ marginRight: '0.25rem' }} />{t('grievance.useThisLocation')}</button>
+                            <Check size={14} style={{ marginRight: '0.25rem' }} />Use Location</button>
                           <button
                             onClick={handleEditLocation}
                             className="btn btn-sm btn-outline"
-                            style={{ flex: '1 1 auto', minWidth: '100px' }}
+                            style={{ justifyContent: 'center' }}
                           >
-                            <Edit2 size={14} style={{ marginRight: '0.25rem' }} />{text('deep.edit', "Edit")}</button>
+                            <Edit2 size={14} style={{ marginRight: '0.25rem' }} />Edit Details</button>
                           {confirmedLocation.source === 'GPS' && (
                             <button
                               onClick={handleRedetectLocation}
                               className="btn btn-sm btn-outline"
-                              style={{ flex: '1 1 auto', minWidth: '100px' }}
+                              style={{ justifyContent: 'center' }}
                             >
-                              <Navigation size={14} style={{ marginRight: '0.25rem' }} />{text('deep.reDetect', "Re-detect")}</button>
+                              <Navigation size={14} style={{ marginRight: '0.25rem' }} />Re-detect</button>
                           )}
                         </div>
+
+                        <AnimatePresence>
+                          {showLocationEdit && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              style={{ overflow: 'hidden' }}
+                            >
+                              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(14,165,164,0.16)' }}>
+                                <h4 style={{ fontSize: '0.9rem', fontWeight: 850, marginBottom: '0.35rem', color: 'var(--on-surface)' }}>Confirm Location Details</h4>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.8rem', lineHeight: 1.45 }}>
+                                  Map address is approximate. Please confirm exact landmark and pincode.
+                                </p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 14rem), 1fr))', gap: '0.75rem' }}>
+                                  <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" htmlFor="detectedArea">Area / Locality</label>
+                                    <input id="detectedArea" className="form-input" type="text" value={locationFields.area} onChange={e => updateLocationFields({ area: e.target.value })} placeholder="Example: Anand Nagar" />
+                                  </div>
+                                  <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" htmlFor="detectedLandmark">Exact Landmark / Place</label>
+                                    <input id="detectedLandmark" className="form-input" type="text" value={locationFields.landmark} onChange={e => updateLocationFields({ landmark: e.target.value })} placeholder="Example: Bansal College Main Gate" />
+                                  </div>
+                                  <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" htmlFor="quickPincode">Pincode</label>
+                                    <input id="quickPincode" className="form-input" type="text" inputMode="numeric" value={locationFields.pincode} onChange={e => updateLocationFields({ pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="Example: 462022" maxLength={6} />
+                                    {locationFields.pincode && !/^\d{6}$/.test(locationFields.pincode) && (
+                                      <p style={{ fontSize: '0.6875rem', color: '#e65100', marginTop: '0.25rem' }}>{text('deep.EnterAValid6Dig', "Enter a valid 6-digit Indian pincode.")}</p>
+                                    )}
+                                  </div>
+                                  <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" htmlFor="ward">Ward</label>
+                                    <input id="ward" className="form-input" type="text" value={locationFields.ward} onChange={e => updateLocationFields({ ward: e.target.value })} placeholder="Example: Ward 1" />
+                                  </div>
+                                  <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" htmlFor="zone">Zone</label>
+                                    <input id="zone" className="form-input" type="text" value={locationFields.zone} onChange={e => updateLocationFields({ zone: e.target.value })} placeholder="Example: North Zone" />
+                                  </div>
+                                </div>
+
+                                {showFinalLocationPreview && (
+                                  <div style={{ marginTop: '0.85rem', padding: '0.75rem', background: 'rgba(255,255,255,0.82)', borderRadius: '0.75rem', border: '1px solid rgba(14,165,164,0.15)' }}>
+                                    {finalLocationPreview ? (
+                                      <p style={{ fontSize: '0.83rem', color: 'var(--on-surface)', lineHeight: 1.45, fontWeight: 700, overflowWrap: 'anywhere' }}>Final: {finalLocationPreview}</p>
+                                    ) : (
+                                      <p style={{ fontSize: '0.83rem', color: 'var(--on-surface-variant)', lineHeight: 1.45 }}>Final: {locationMainAddress || 'Add details to preview final location.'}</p>
+                                    )}
+                                    <p style={{ marginTop: '0.35rem', fontSize: '0.68rem', color: 'var(--on-surface-variant)', fontFamily: 'monospace' }}>
+                                      Lat {formatCoordinate(confirmedLocation.lat)} | Lng {formatCoordinate(confirmedLocation.lng)}
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.85rem', flexWrap: 'wrap' }}>
+                                  <button onClick={handleSaveManualLocation} className="btn btn-sm btn-primary" style={{ flex: '1 1 9rem' }}>
+                                    <Check size={14} style={{ marginRight: '0.25rem' }} />Save Details
+                                  </button>
+                                  <button onClick={() => setShowLocationEdit(false)} className="btn btn-sm btn-outline" style={{ flex: '1 1 9rem' }}>
+                                    Collapse
+                                  </button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1230,7 +1171,7 @@ export default function NewGrievance() {
 
                   {/* Manual Location Edit */}
                   <AnimatePresence>
-                    {showLocationEdit && (
+                    {showLocationEdit && !confirmedLocation && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -1327,7 +1268,7 @@ export default function NewGrievance() {
                           fontSize: '0.8125rem',
                         }}
                       >
-                        <span style={{ flex: 1 }}>📍 Old QR Zone location found. Not using it for this complaint. <strong>{text('deep.zonex', "Zone:")}</strong> {qrContext.zoneName}</span>
+                        <span style={{ flex: 1 }}>ðŸ“ Old QR Zone location found. Not using it for this complaint. <strong>{text('deep.zonex', "Zone:")}</strong> {qrContext.zoneName}</span>
                         <button
                           onClick={handleClearQRLocation}
                           className="btn btn-sm btn-ghost"
@@ -1367,6 +1308,7 @@ export default function NewGrievance() {
                       <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>{t('grievance.liveEvidence')}</h3>
                       <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{text('deep.captureAFreshPh', "Capture a fresh photo from the complaint location. CivicTrust will attach GPS coordinates and timestamp for verification.")}</p>
                       <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem', lineHeight: 1.45 }}>Evidence capture will request fresh GPS. If GPS is denied, keep the photo and enter a landmark manually.</p>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem', lineHeight: 1.45 }}>To reduce fake or reused evidence, CivicTrust checks live capture, GPS, timestamp, random challenge completion, and evidence consistency. This does not guarantee 100% deepfake detection, but helps officers identify suspicious evidence.</p>
                       <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>{text('deep.liveGeoTaggedCa', "Live geo-tagged capture is recommended for evidence verification.")}</p>
                     </div>
                     <LiveGeoTaggedCapture
@@ -1386,7 +1328,7 @@ export default function NewGrievance() {
                   <div>
                     <p className="form-label" style={{ marginBottom: '0.5rem' }}>{text('deep.contact', "Contact")}</p>
                     <p style={{ fontWeight: 600 }}>{form.citizenName}</p>
-                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>{form.citizenEmail} {form.citizenPhone && `• ${form.citizenPhone}`}</p>
+                    <p style={{ color: 'var(--on-surface-variant)', fontSize: '0.875rem' }}>{form.citizenEmail} {form.citizenPhone && `â€¢ ${form.citizenPhone}`}</p>
                   </div>
                   <div>
                     <p className="form-label" style={{ marginBottom: '0.5rem' }}>Grievance Title</p>
@@ -1405,17 +1347,31 @@ export default function NewGrievance() {
                   {liveEvidence?.file && (
                     <div style={{ padding: '1rem', background: 'rgba(14,165,164,0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(14,165,164,0.18)' }}>
                       <p className="form-label" style={{ marginBottom: '0.5rem' }}>{text('deep.liveGeoTaggedEv', "Live Geo-Tagged Evidence")}</p>
-                      <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center' }}>
-                        {liveEvidence.previewUrl && (
-                          <img src={liveEvidence.previewUrl} alt="Live captured evidence" style={{ width: '6rem', height: '4.5rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.22)', flexShrink: 0 }} />
-                        )}
+                      <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          {(liveEvidence.captures?.length ? liveEvidence.captures : [{ previewUrl: liveEvidence.previewUrl }]).map((capture, index) => (
+                            capture.previewUrl && (
+                              <img key={`${capture.previewUrl}-${index}`} src={capture.previewUrl} alt={`Live captured evidence ${index + 1}`} style={{ width: '5.5rem', height: '4.25rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(14,165,164,0.22)', flexShrink: 0 }} />
+                            )
+                          ))}
+                        </div>
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{liveEvidence.file.name}</p>
+                          <p style={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{liveEvidence.file.name}</p>
                           <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>
                             {Number.isFinite(Number(liveEvidence.geoTag?.lat)) && Number.isFinite(Number(liveEvidence.geoTag?.lng))
                               ? `GPS: ${Number(liveEvidence.geoTag.lat).toFixed(6)}, ${Number(liveEvidence.geoTag.lng).toFixed(6)}`
                               : 'Photo captured, but GPS permission was denied. Please allow location or enter landmark manually.'}
                           </p>
+                          {liveEvidence.authenticity && (
+                            <p style={{ fontSize: '0.8125rem', color: Number(liveEvidence.authenticity.score) < 50 ? 'var(--error)' : 'var(--primary)', marginTop: '0.25rem', fontWeight: 700 }}>
+                              Authenticity: {liveEvidence.authenticity.score}% - {liveEvidence.authenticity.status}
+                            </p>
+                          )}
+                          {liveEvidence.authenticity?.screenSpoofRisk && (
+                            <p style={{ fontSize: '0.8125rem', color: liveEvidence.authenticity.screenSpoofRisk === 'High' ? 'var(--error)' : liveEvidence.authenticity.screenSpoofRisk === 'Medium' ? '#b45309' : 'var(--success)', marginTop: '0.25rem', fontWeight: 700 }}>
+                              Screen Spoof Risk: {liveEvidence.authenticity.screenSpoofRisk}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

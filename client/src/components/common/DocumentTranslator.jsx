@@ -95,38 +95,45 @@ export default function DocumentTranslator({ lang }) {
   useEffect(() => {
     document.documentElement.lang = lang === 'hi' ? 'hi' : 'en';
 
-    let applying = false;
     let frame = 0;
+    let observer;
 
     const apply = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        applying = true;
+        observer?.disconnect();
         translateTree(document.body, lang);
-        applying = false;
+        if (lang !== 'en') observe();
+      });
+    };
+
+    const observe = () => {
+      observer?.disconnect();
+      observer = new MutationObserver((mutations) => {
+        if (lang === 'en') return;
+        if (mutations.some((mutation) => mutation.type !== 'attributes' || translatableAttributes.includes(mutation.attributeName))) {
+          apply();
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: translatableAttributes,
       });
     };
 
     apply();
 
-    const observer = new MutationObserver((mutations) => {
-      if (applying) return;
-      if (mutations.some((mutation) => mutation.type !== 'attributes' || translatableAttributes.includes(mutation.attributeName))) {
-        apply();
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: translatableAttributes,
-    });
+    if (lang !== 'en') {
+      observe();
+    }
 
     return () => {
       cancelAnimationFrame(frame);
-      observer.disconnect();
+      observer?.disconnect();
     };
   }, [lang]);
 

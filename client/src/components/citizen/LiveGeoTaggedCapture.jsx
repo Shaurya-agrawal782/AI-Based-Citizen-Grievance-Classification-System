@@ -3,12 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, Camera, CheckCircle, Loader2, Navigation, RefreshCw, Shield, Trash2, Video, X } from 'lucide-react';
 import { reverseGeocode } from '../../utils/locationHelper';
 import { cleanDisplayAddress } from '../../utils/cleanAddress';
+import { buildEvidenceFingerprintBundle, calculateEvidenceAuthenticity, detectScreenSpoofRisk } from '../../utils/evidenceAuthenticity';
 
 const GPS_OPTIONS = {
   enableHighAccuracy: true,
   timeout: 12000,
   maximumAge: 0
 };
+
+const AUTHENTICITY_CHALLENGES = [
+  'Capture the issue with surrounding road/building visible.',
+  'Move camera slightly left and capture again.',
+  'Capture the issue from a wider angle.',
+  'Include a nearby landmark in the frame.'
+];
+
+const REQUIRED_CAPTURE_COUNT = 2;
+const MAX_CAPTURE_COUNT = 3;
 
 const getCameraConstraints = (mode, exact = false) => ({
   audio: false,
@@ -66,6 +77,9 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
   const [cameraStream, setCameraStream] = useState(null);
   const [videoReady, setVideoReady] = useState(false);
   const [facingMode, setFacingMode] = useState('environment');
+  const [challengePrompt, setChallengePrompt] = useState(() => (
+    AUTHENTICITY_CHALLENGES[Math.floor(Math.random() * AUTHENTICITY_CHALLENGES.length)]
+  ));
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const phoneCameraInputRef = useRef(null);
@@ -102,6 +116,51 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
       return 'N/A';
     }
   };
+
+  const selectChallengePrompt = useCallback(() => {
+    const nextPrompt = AUTHENTICITY_CHALLENGES[Math.floor(Math.random() * AUTHENTICITY_CHALLENGES.length)];
+    setChallengePrompt(nextPrompt);
+    return nextPrompt;
+  }, []);
+
+  const getActiveChallengePrompt = useCallback(() => (
+    challengePrompt || selectChallengePrompt()
+  ), [challengePrompt, selectChallengePrompt]);
+
+  const buildAuthenticity = useCallback((captures, geoTag, options = {}) => {
+    const files = (captures || []).map((capture) => capture.file).filter(Boolean);
+    const challengeDone = options.challengeCompleted ?? files.length >= REQUIRED_CAPTURE_COUNT;
+    const usedCamera = options.usedLiveCamera ?? true;
+    const duplicateRisk = options.duplicateRisk ?? false;
+    const aiRelevance = options.aiRelevance || 'Pending';
+    const result = calculateEvidenceAuthenticity({
+      evidenceFiles: files,
+      geoTag,
+      challengeCompleted: challengeDone,
+      usedLiveCamera: usedCamera,
+      duplicateRisk,
+      aiRelevance,
+      screenSpoofRisk: options.screenSpoofRisk || 'Low',
+      spoofScore: options.spoofScore || 0,
+      spoofSignals: options.spoofSignals || [],
+      spoofWarnings: options.spoofWarnings || [],
+    });
+
+    return {
+      ...result,
+      challengePrompt: options.challengePrompt || challengePrompt || '',
+      challengeCompleted: challengeDone,
+      usedLiveCamera: usedCamera,
+      duplicateRisk,
+      aiRelevance,
+      screenSpoofRisk: result.screenSpoofRisk,
+      spoofScore: result.spoofScore,
+      spoofSignals: result.spoofSignals,
+      spoofWarnings: result.spoofWarnings,
+      evidenceCount: files.length,
+      geoTag,
+    };
+  }, [challengePrompt]);
 
   const hasConfirmedLocation = Boolean(
     confirmedLocation
@@ -285,6 +344,96 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     onEvidenceChange?.(evidenceWithConfirmedLocation);
   };
 
+  const publishCapturedFile = useCallback(async (file, previewUrl, geoTag, options = {}) => {
+    const existingCaptures = options.resetCaptures ? [] : (evidence?.captures || []);
+    const captureIndex = existingCaptures.length;
+    const activeChallenge = options.challengePrompt || getActiveChallengePrompt();
+    const capturedAt = geoTag?.capturedAt || geoTag?.evidenceCapturedAt || new Date().toISOString();
+    const capture = {
+      file,
+      previewUrl,
+      capturedAt,
+      challengePrompt: activeChallenge,
+      label: captureIndex === 0
+        ? 'Primary issue photo'
+        : captureIndex === 1
+          ? 'Challenge photo'
+          : 'Wider context photo',
+    };
+    const captures = [...existingCaptures, capture].slice(0, MAX_CAPTURE_COUNT);
+    const files = captures.map((item) => item.file).filter(Boolean);
+    const challengeCompleted = captures.length >= REQUIRED_CAPTURE_COUNT;
+    const screenSpoofResult = options.screenSpoofResult || await detectScreenSpoofRisk({
+      imageFile: file,
+      previewUrl,
+      evidenceFiles: files,
+      challengeCompleted,
+    });
+    const nextLandmark = landmark || evidence?.landmark || confirmedLocation?.landmark || '';
+    const authenticity = buildAuthenticity(captures, geoTag, {
+      challengePrompt: activeChallenge,
+      challengeCompleted,
+      usedLiveCamera: options.usedLiveCamera ?? true,
+      duplicateRisk: false,
+      aiRelevance: 'Pending',
+      screenSpoofRisk: screenSpoofResult.screenSpoofRisk,
+      spoofScore: screenSpoofResult.spoofScore,
+      spoofSignals: screenSpoofResult.signals,
+      spoofWarnings: screenSpoofResult.warnings,
+    });
+    const primaryCapture = captures[0] || capture;
+    const nextEvidence = {
+      file: primaryCapture.file,
+      previewUrl: primaryCapture.previewUrl,
+      files,
+      captures,
+      landmark: nextLandmark,
+      geoTag,
+      authenticity,
+      evidenceFingerprint: buildEvidenceFingerprintBundle(files),
+      challengePrompt: activeChallenge,
+      challengeCompleted,
+      usedLiveCamera: options.usedLiveCamera ?? true,
+      duplicateRisk: false,
+      aiRelevance: 'Pending',
+      screenSpoofRisk: screenSpoofResult.screenSpoofRisk,
+      spoofScore: screenSpoofResult.spoofScore,
+      spoofSignals: screenSpoofResult.signals,
+      spoofWarnings: screenSpoofResult.warnings,
+      skipConfirmedLocationMerge: options.useConfirmedLocation === false,
+    };
+
+    publishEvidence(nextEvidence, geoTag ? 'preview' : 'gps-denied', {
+      useConfirmedLocation: options.useConfirmedLocation,
+    });
+  }, [buildAuthenticity, confirmedLocation?.landmark, evidence, getActiveChallengePrompt, landmark, publishEvidence]);
+
+  const refreshEvidenceGeoTag = useCallback((geoTag) => {
+    if (!evidence) return;
+    const captures = evidence.captures || [{ file: evidence.file, previewUrl: evidence.previewUrl }];
+    const files = captures.map((item) => item.file).filter(Boolean);
+    const authenticity = buildAuthenticity(captures, geoTag, {
+      challengePrompt: evidence.challengePrompt || challengePrompt,
+      challengeCompleted: evidence.challengeCompleted || captures.length >= REQUIRED_CAPTURE_COUNT,
+      usedLiveCamera: evidence.usedLiveCamera ?? true,
+      duplicateRisk: evidence.duplicateRisk ?? false,
+      aiRelevance: evidence.aiRelevance || 'Pending',
+      screenSpoofRisk: evidence.screenSpoofRisk || evidence.authenticity?.screenSpoofRisk || 'Low',
+      spoofScore: evidence.spoofScore || evidence.authenticity?.spoofScore || 0,
+      spoofSignals: evidence.spoofSignals || evidence.authenticity?.spoofSignals || [],
+      spoofWarnings: evidence.spoofWarnings || evidence.authenticity?.spoofWarnings || [],
+    });
+
+    publishEvidence({
+      ...evidence,
+      files,
+      captures,
+      geoTag,
+      authenticity,
+      evidenceFingerprint: buildEvidenceFingerprintBundle(files),
+    }, 'preview', { useConfirmedLocation: false });
+  }, [buildAuthenticity, challengePrompt, evidence, publishEvidence]);
+
   const requestGPS = async (file, previewUrl, options = {}) => {
     const refreshExisting = Boolean(options.refreshExisting);
     const shouldUseConfirmedLocation = options.useConfirmedLocation !== false;
@@ -296,7 +445,11 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
       if (refreshExisting && evidence) {
         setStatus('preview');
       } else {
-        publishEvidence({ file, previewUrl, geoTag: null, landmark: landmark || '', skipConfirmedLocationMerge: true }, 'gps-denied', { useConfirmedLocation: false });
+        await publishCapturedFile(file, previewUrl, null, {
+          useConfirmedLocation: false,
+          usedLiveCamera: options.usedLiveCamera ?? true,
+          challengePrompt: options.challengePrompt,
+        });
       }
       return;
     }
@@ -335,13 +488,6 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
           evidenceGpsRefreshed: refreshExisting,
           complaintLocationAccuracy: confirmedLocation?.accuracy ?? null,
         };
-        const nextEvidence = {
-          file,
-          previewUrl,
-          landmark: nextLandmark,
-          geoTag: refreshedGeoTag,
-        };
-
         if (refreshExisting && hasConfirmedLocation) {
           const useAsComplaintLocation = window.confirm('Use this updated GPS as complaint location too?');
           if (useAsComplaintLocation) {
@@ -350,7 +496,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
               confirmedByUser: true,
               landmark: nextLandmark,
             });
-            publishEvidence(nextEvidence);
+            refreshEvidenceGeoTag(refreshedGeoTag);
             return;
           }
         }
@@ -363,16 +509,29 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
           });
         }
 
-        publishEvidence(nextEvidence, 'preview', { useConfirmedLocation: shouldUseConfirmedLocation });
+        if (refreshExisting && evidence) {
+          refreshEvidenceGeoTag(refreshedGeoTag);
+          return;
+        }
+
+        await publishCapturedFile(file, previewUrl, refreshedGeoTag, {
+          useConfirmedLocation: shouldUseConfirmedLocation,
+          usedLiveCamera: options.usedLiveCamera ?? true,
+          challengePrompt: options.challengePrompt,
+        });
       },
-      (error) => {
+      async (error) => {
         const deniedMessage = 'Photo captured, but GPS permission was denied. Please allow location or enter landmark manually.';
         const timeoutMessage = 'Photo captured, but GPS timed out. Please retry location or enter the exact landmark.';
         setGpsError(error.code === error.TIMEOUT ? timeoutMessage : deniedMessage);
         if (refreshExisting && evidence) {
           setStatus('preview');
         } else {
-          publishEvidence({ file, previewUrl, geoTag: null, landmark: landmark || '', skipConfirmedLocationMerge: true }, 'gps-denied', { useConfirmedLocation: false });
+          await publishCapturedFile(file, previewUrl, null, {
+            useConfirmedLocation: false,
+            usedLiveCamera: options.usedLiveCamera ?? true,
+            challengePrompt: options.challengePrompt,
+          });
         }
       },
       GPS_OPTIONS
@@ -395,6 +554,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
   };
 
   const handlePrimaryCameraClick = () => {
+    getActiveChallengePrompt();
     if (isLikelyMobile) {
       openNativeCapture(phoneCameraInputRef, 'environment');
       return;
@@ -420,15 +580,17 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
       return;
     }
 
-    if (evidence?.previewUrl) URL.revokeObjectURL(evidence.previewUrl);
-
     stopCamera();
     setStatus('capturing');
     setCameraError('');
     setGpsError('');
 
     const previewUrl = URL.createObjectURL(file);
-    requestGPS(file, previewUrl, { useConfirmedLocation: false });
+    requestGPS(file, previewUrl, {
+      useConfirmedLocation: false,
+      usedLiveCamera: true,
+      challengePrompt: getActiveChallengePrompt(),
+    });
   };
 
   const startCamera = async (nextFacingMode = facingMode) => {
@@ -520,19 +682,22 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
       const previewUrl = URL.createObjectURL(file);
 
       stopCamera();
-      if (hasConfirmedLocation) {
-        const capturedAt = new Date().toISOString();
-        const confirmedGeoTag = buildConfirmedGeoTag({ capturedAt, evidenceCapturedAt: capturedAt }, landmark);
-        publishEvidence({
-          file,
-          previewUrl,
-          landmark: confirmedGeoTag?.landmark || landmark || '',
-          geoTag: confirmedGeoTag,
-        });
-      } else {
-        requestGPS(file, previewUrl);
-      }
+      requestGPS(file, previewUrl, {
+        useConfirmedLocation: false,
+        usedLiveCamera: true,
+        challengePrompt: getActiveChallengePrompt(),
+      });
     }, 'image/jpeg', 0.92);
+  };
+
+  const handleCaptureAdditional = () => {
+    if ((evidence?.captures?.length || 0) >= MAX_CAPTURE_COUNT) return;
+    if (isLikelyMobile) {
+      openNativeCapture(phoneCameraInputRef, 'environment');
+      return;
+    }
+    lastNativeInputRef.current = null;
+    startCamera(facingMode);
   };
 
   const handleLandmarkChange = (value) => {
@@ -559,11 +724,14 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
 
   const handleRetake = () => {
     const nativeInputRef = lastNativeInputRef.current;
-    if (evidence?.previewUrl) URL.revokeObjectURL(evidence.previewUrl);
+    (evidence?.captures || [{ previewUrl: evidence?.previewUrl }]).forEach((capture) => {
+      if (capture?.previewUrl) URL.revokeObjectURL(capture.previewUrl);
+    });
     setEvidence(null);
     setLandmark('');
     setGpsError('');
     onEvidenceChange?.(null);
+    selectChallengePrompt();
     if (nativeInputRef) {
       setStatus('idle');
       openNativeCapture(nativeInputRef, 'environment');
@@ -573,7 +741,9 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
   };
 
   const handleRemove = () => {
-    if (evidence?.previewUrl) URL.revokeObjectURL(evidence.previewUrl);
+    (evidence?.captures || [{ previewUrl: evidence?.previewUrl }]).forEach((capture) => {
+      if (capture?.previewUrl) URL.revokeObjectURL(capture.previewUrl);
+    });
     stopCamera();
     setEvidence(null);
     setLandmark('');
@@ -582,6 +752,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     setVideoReady(false);
     setStatus('idle');
     onEvidenceChange?.(null);
+    selectChallengePrompt();
   };
 
   const handleUse = () => {
@@ -612,6 +783,10 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
   const showAccuracyWarning = evidence?.geoTag?.accuracy != null && evidence.geoTag.accuracy > 100;
   const evidenceAccuracyStatus = getAccuracyStatus(evidence?.geoTag?.accuracy);
   const complaintAccuracyStatus = getAccuracyStatus(confirmedLocation?.accuracy);
+  const captureCount = evidence?.captures?.length || 0;
+  const captureProgressLabel = `Photo ${Math.min(captureCount + 1, REQUIRED_CAPTURE_COUNT)} of ${REQUIRED_CAPTURE_COUNT}`;
+  const nextCaptureLabel = captureCount < REQUIRED_CAPTURE_COUNT ? 'Capture Challenge Photo' : 'Capture Wider Context';
+  const canAddMoreCaptures = captureCount > 0 && captureCount < MAX_CAPTURE_COUNT;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -651,6 +826,13 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
             <p style={mobileCaptureHelperStyle}>
               On mobile, camera opens through your browser. On laptop, a live camera preview opens. Please allow camera and location permission.
             </p>
+            <div style={challengeBoxStyle}>
+              <p style={challengeEyebrowStyle}>Live Evidence Authenticity Check</p>
+              <p style={challengePromptStyle}>{challengePrompt}</p>
+              <p style={challengeTextStyle}>
+                CivicTrust uses live capture, GPS, timestamp, random challenge completion, and multiple frames to reduce reused or replayed evidence. This does not guarantee 100% deepfake detection.
+              </p>
+            </div>
             {cameraError && (
               <div style={idleCameraErrorStyle}>
                 <AlertCircle size={13} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
@@ -665,7 +847,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
             <Loader2 size={20} className="animate-spin" style={{ color: 'var(--primary)', flexShrink: 0 }} />
             <div>
               <p style={loadingTitleStyle}>Opening camera...</p>
-              <p style={loadingTextStyle}>Please allow camera access when prompted.</p>
+              <p style={loadingTextStyle}>{captureCount > 0 ? nextCaptureLabel : captureProgressLabel}: {challengePrompt}</p>
             </div>
           </motion.div>
         )}
@@ -717,6 +899,10 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
                 <RefreshCw size={13} />
                 Flip
               </button>
+              <div style={cameraChallengeOverlayStyle}>
+                <span>{captureCount > 0 ? nextCaptureLabel : captureProgressLabel}</span>
+                <strong>{challengePrompt}</strong>
+              </div>
             </div>
 
             {cameraError && (
@@ -842,6 +1028,36 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
               </div>
             </div>
 
+            {evidence.captures?.length > 0 && (
+              <div style={captureStripStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.625rem' }}>
+                  <p style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary)' }}>
+                    Photo {evidence.captures.length} of {REQUIRED_CAPTURE_COUNT}
+                  </p>
+                  {!evidence.challengeCompleted && (
+                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#9a5f00' }}>Challenge photo still recommended</span>
+                  )}
+                </div>
+                <div style={captureThumbGridStyle}>
+                  {evidence.captures.map((capture, index) => (
+                    <div key={`${capture.previewUrl}-${index}`} style={captureThumbStyle}>
+                      <img src={capture.previewUrl} alt={capture.label || `Evidence ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <span style={captureThumbLabelStyle}>{index + 1}. {capture.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <AuthenticityCard authenticity={evidence.authenticity} />
+            <ScreenSpoofRiskCard
+              authenticity={evidence.authenticity}
+              onRetake={handleRetake}
+              onCaptureWiderScene={handleCaptureAdditional}
+              onContinue={handleUse}
+              canCaptureWiderScene={canAddMoreCaptures}
+            />
+
             {showAccuracyWarning && (
               <div style={warningBoxStyle}>
                 <AlertCircle size={13} color="#ef9900" style={{ marginTop: '0.125rem', flexShrink: 0 }} />
@@ -872,6 +1088,12 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
             </div>
 
             <div style={actionBarStyle}>
+              {canAddMoreCaptures && (
+                <button type="button" id="liveEvidenceAddFrameBtn" onClick={handleCaptureAdditional} className="btn btn-sm btn-secondary">
+                  <Camera size={13} />
+                  {nextCaptureLabel}
+                </button>
+              )}
               <button type="button" id="liveEvidenceRetakeBtn" onClick={handleRetake} className="btn btn-sm btn-outline">
                 <RefreshCw size={13} />
                 Retake Photo
@@ -917,6 +1139,137 @@ function MetaBox({ label, value }) {
   );
 }
 
+function AuthenticityCard({ authenticity }) {
+  if (!authenticity) return null;
+  const tone = getAuthenticityTone(authenticity.status);
+
+  return (
+    <div style={authenticityCardStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div>
+          <p style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Evidence Authenticity Score</p>
+          <p style={{ fontSize: '1.5rem', fontWeight: 900, color: tone.color, lineHeight: 1.15 }}>{authenticity.score}%</p>
+        </div>
+        <span style={{ ...authenticityStatusStyle, color: tone.color, background: tone.background, borderColor: tone.border }}>
+          {authenticity.status}
+        </span>
+      </div>
+
+      <div style={{ marginTop: '0.75rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '0.75rem' }}>
+        <div>
+          <p style={authenticityListTitleStyle}>Signals</p>
+          <div style={authenticityListStyle}>
+            {(authenticity.signals || []).map((signal) => (
+              <span key={signal} style={authenticitySignalStyle}>
+                <CheckCircle size={12} />
+                {signal}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p style={authenticityListTitleStyle}>Review Notes</p>
+          <div style={authenticityListStyle}>
+            {(authenticity.warnings || []).map((warning) => (
+              <span key={warning} style={authenticityWarningStyle}>
+                <AlertCircle size={12} />
+                {warning}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p style={{ marginTop: '0.75rem', fontSize: '0.72rem', color: 'var(--on-surface-variant)', lineHeight: 1.45 }}>
+        AI visual relevance check can verify whether evidence matches complaint category. It is currently pending and should be treated as officer review support, not a guarantee.
+      </p>
+    </div>
+  );
+}
+
+function ScreenSpoofRiskCard({
+  authenticity,
+  onRetake,
+  onCaptureWiderScene,
+  onContinue,
+  canCaptureWiderScene,
+}) {
+  if (!authenticity?.screenSpoofRisk) return null;
+
+  const tone = getSpoofRiskTone(authenticity.screenSpoofRisk);
+  const isHighRisk = authenticity.screenSpoofRisk === 'High';
+  const signals = authenticity.spoofSignals?.length ? authenticity.spoofSignals : [];
+  const warnings = authenticity.spoofWarnings?.length ? authenticity.spoofWarnings : [];
+
+  return (
+    <div style={{ ...screenSpoofCardStyle, borderColor: tone.border, background: tone.background }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div>
+          <p style={{ fontSize: '0.6875rem', fontWeight: 900, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Screen Spoof Risk</p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem', lineHeight: 1.45 }}>
+            Checks glare, flatness, screen-like patterns, duplicate frames, and challenge completion.
+          </p>
+        </div>
+        <span style={{ ...screenRiskBadgeStyle, color: tone.color, borderColor: tone.border, background: tone.badgeBackground }}>
+          {authenticity.screenSpoofRisk} Risk
+        </span>
+      </div>
+
+      <div style={{ marginTop: '0.75rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '0.75rem' }}>
+        <div>
+          <p style={authenticityListTitleStyle}>Risk Signals</p>
+          <div style={authenticityListStyle}>
+            {(signals.length ? signals : ['No screen replay signal detected']).map((signal) => (
+              <span key={signal} style={{ ...authenticitySignalStyle, color: tone.color }}>
+                <CheckCircle size={12} />
+                {formatSpoofSignal(signal)}
+              </span>
+            ))}
+          </div>
+        </div>
+        {warnings.length > 0 && (
+          <div>
+            <p style={authenticityListTitleStyle}>Warnings</p>
+            <div style={authenticityListStyle}>
+              {warnings.map((warning) => (
+                <span key={warning} style={authenticityWarningStyle}>
+                  <AlertCircle size={12} />
+                  {warning}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {isHighRisk && (
+        <>
+          <div style={screenSpoofHighWarningStyle}>
+            <AlertCircle size={13} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
+            <span>This evidence may be a photo of another screen or reused image. Please capture live scene again from a wider angle.</span>
+          </div>
+          <div style={screenRiskActionRowStyle}>
+            <button type="button" className="btn btn-sm btn-outline" onClick={onRetake}>
+              <RefreshCw size={13} />
+              Retake Evidence
+            </button>
+            {canCaptureWiderScene && (
+              <button type="button" className="btn btn-sm btn-secondary" onClick={onCaptureWiderScene}>
+                <Camera size={13} />
+                Capture Wider Scene
+              </button>
+            )}
+            <button type="button" className="btn btn-sm btn-primary" onClick={onContinue}>
+              <CheckCircle size={13} />
+              Continue with Manual Review
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const loadingBoxStyle = {
   display: 'flex',
   alignItems: 'center',
@@ -936,6 +1289,36 @@ const loadingTitleStyle = {
 const loadingTextStyle = {
   fontSize: '0.75rem',
   color: 'var(--on-surface-variant)'
+};
+
+const challengeBoxStyle = {
+  padding: '0.75rem',
+  background: 'rgba(255,255,255,0.78)',
+  border: '1px solid rgba(20,184,166,0.18)',
+  borderRadius: 'var(--radius-sm)'
+};
+
+const challengeEyebrowStyle = {
+  margin: 0,
+  fontSize: '0.625rem',
+  fontWeight: 800,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+  color: 'var(--primary)'
+};
+
+const challengePromptStyle = {
+  margin: '0.2rem 0',
+  fontSize: '0.875rem',
+  fontWeight: 800,
+  color: 'var(--on-surface)'
+};
+
+const challengeTextStyle = {
+  margin: 0,
+  fontSize: '0.72rem',
+  color: 'var(--on-surface-variant)',
+  lineHeight: 1.45
 };
 
 const cameraCardStyle = {
@@ -1014,6 +1397,174 @@ const cameraFlipButtonStyle = {
   fontSize: '0.72rem',
   fontWeight: 800,
   cursor: 'pointer'
+};
+
+const cameraChallengeOverlayStyle = {
+  position: 'absolute',
+  left: '0.75rem',
+  right: '0.75rem',
+  bottom: '0.75rem',
+  zIndex: 4,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.2rem',
+  padding: '0.65rem 0.75rem',
+  borderRadius: 'var(--radius-sm)',
+  background: 'rgba(15,23,42,0.72)',
+  color: 'white',
+  fontSize: '0.75rem',
+  lineHeight: 1.35
+};
+
+const captureStripStyle = {
+  padding: '0.75rem 0.875rem',
+  borderTop: '1px solid rgba(20,184,166,0.12)',
+  background: 'rgba(255,255,255,0.55)'
+};
+
+const captureThumbGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 110px), 1fr))',
+  gap: '0.625rem'
+};
+
+const captureThumbStyle = {
+  position: 'relative',
+  overflow: 'hidden',
+  borderRadius: 'var(--radius-sm)',
+  border: '1px solid rgba(20,184,166,0.18)',
+  background: 'var(--surface-container-lowest)',
+  aspectRatio: '4 / 3'
+};
+
+const captureThumbLabelStyle = {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  bottom: 0,
+  padding: '0.3rem 0.45rem',
+  background: 'rgba(15,23,42,0.68)',
+  color: 'white',
+  fontSize: '0.62rem',
+  fontWeight: 800
+};
+
+const authenticityCardStyle = {
+  margin: '0.75rem 0.875rem 0',
+  padding: '0.875rem',
+  background: 'linear-gradient(135deg, rgba(255,255,255,0.92), rgba(240,253,250,0.72))',
+  border: '1px solid rgba(20,184,166,0.18)',
+  borderRadius: 'var(--radius-md)'
+};
+
+const screenSpoofCardStyle = {
+  margin: '0.75rem 0.875rem 0',
+  padding: '0.875rem',
+  border: '1px solid',
+  borderRadius: 'var(--radius-md)'
+};
+
+const getAuthenticityTone = (status) => {
+  if (status === 'Verified Live Evidence') {
+    return { color: '#15803d', background: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.24)' };
+  }
+  if (status === 'Suspicious Evidence') {
+    return { color: '#b91c1c', background: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.24)' };
+  }
+  return { color: '#b45309', background: 'rgba(245,158,11,0.14)', border: 'rgba(245,158,11,0.28)' };
+};
+
+const getSpoofRiskTone = (risk) => {
+  if (risk === 'High') {
+    return { color: '#b91c1c', background: 'rgba(239,68,68,0.08)', badgeBackground: 'rgba(239,68,68,0.13)', border: 'rgba(239,68,68,0.28)' };
+  }
+  if (risk === 'Medium') {
+    return { color: '#b45309', background: 'rgba(245,158,11,0.08)', badgeBackground: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.28)' };
+  }
+  return { color: '#15803d', background: 'rgba(34,197,94,0.08)', badgeBackground: 'rgba(34,197,94,0.13)', border: 'rgba(34,197,94,0.24)' };
+};
+
+const formatSpoofSignal = (signal) => {
+  const labels = {
+    possibleScreenReflection: 'Possible screen reflection',
+    possibleMoirePattern: 'Possible moire or display pattern',
+    possibleFlatImageReplay: 'Possible flat image replay',
+    challengeNotCompleted: 'Challenge not completed',
+    singleFrameOnly: 'Single frame only',
+    lowContextCapture: 'Low context capture',
+    possibleDuplicateFrame: 'Possible duplicate frame',
+    'No screen replay signal detected': 'No screen replay signal detected',
+  };
+  return labels[signal] || String(signal).replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
+};
+
+const authenticityStatusStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '0.3rem 0.55rem',
+  borderRadius: '999px',
+  border: '1px solid',
+  fontSize: '0.68rem',
+  fontWeight: 900
+};
+
+const authenticityListTitleStyle = {
+  margin: '0 0 0.35rem',
+  fontSize: '0.66rem',
+  fontWeight: 900,
+  color: 'var(--on-surface-variant)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em'
+};
+
+const authenticityListStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.35rem'
+};
+
+const authenticitySignalStyle = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: '0.35rem',
+  fontSize: '0.72rem',
+  color: '#0f766e',
+  lineHeight: 1.35
+};
+
+const authenticityWarningStyle = {
+  ...authenticitySignalStyle,
+  color: '#9a5f00'
+};
+
+const screenRiskBadgeStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '0.3rem 0.55rem',
+  borderRadius: '999px',
+  border: '1px solid',
+  fontSize: '0.68rem',
+  fontWeight: 900
+};
+
+const screenSpoofHighWarningStyle = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: '0.45rem',
+  marginTop: '0.75rem',
+  padding: '0.625rem 0.75rem',
+  borderRadius: 'var(--radius-sm)',
+  background: 'rgba(239,68,68,0.08)',
+  color: '#b91c1c',
+  fontSize: '0.75rem',
+  lineHeight: 1.45
+};
+
+const screenRiskActionRowStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '0.5rem',
+  marginTop: '0.75rem'
 };
 
 const inlineCameraErrorStyle = {

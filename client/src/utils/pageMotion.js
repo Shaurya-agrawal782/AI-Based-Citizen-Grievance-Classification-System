@@ -2,7 +2,7 @@ export const pageRevealProps = (shouldReduceMotion) =>
   shouldReduceMotion
     ? {}
     : {
-        initial: 'hidden',
+        initial: false,
         animate: 'show',
       };
 

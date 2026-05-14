@@ -101,6 +101,7 @@ const grievanceSchema = new mongoose.Schema({
       enum: ['LIVE_GEO_TAGGED', 'UPLOAD'],
       default: 'UPLOAD'
     },
+    evidenceFingerprint: String,
     geoTag: {
       lat: Number,
       lng: Number,
@@ -116,6 +117,22 @@ const grievanceSchema = new mongoose.Schema({
     verifiedLiveCapture: {
       type: Boolean,
       default: false
+    },
+    authenticity: {
+      score: Number,
+      status: String,
+      riskLevel: String,
+      signals: [String],
+      warnings: [String],
+      challengePrompt: String,
+      challengeCompleted: Boolean,
+      usedLiveCamera: Boolean,
+      duplicateRisk: Boolean,
+      aiRelevance: String,
+      screenSpoofRisk: String,
+      spoofScore: Number,
+      spoofSignals: [String],
+      spoofWarnings: [String]
     }
   }],
   resolutionProof: {

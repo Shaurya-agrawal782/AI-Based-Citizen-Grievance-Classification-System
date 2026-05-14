@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, AlertCircle, Globe, MessageSquare, ArrowLeft, Mail, ExternalLink, Image as ImageIcon, MapPin, ShieldCheck } from 'lucide-react';
+import { Sparkles, AlertCircle, Globe, MessageSquare, ArrowLeft, Mail, ExternalLink, Image as ImageIcon, MapPin, ShieldCheck, CheckCircle } from 'lucide-react';
 import { grievanceAPI, aiAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import AIDecisionCard from '../components/admin/AIDecisionCard';
@@ -130,6 +130,55 @@ const formatEvidenceDate = (date) => {
   });
 };
 
+const getAuthenticityTone = (status) => {
+  if (status === 'Verified Live Evidence') {
+    return { color: '#15803d', background: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.24)' };
+  }
+  if (status === 'Suspicious Evidence') {
+    return { color: '#b91c1c', background: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.24)' };
+  }
+  return { color: '#b45309', background: 'rgba(245,158,11,0.14)', border: 'rgba(245,158,11,0.28)' };
+};
+
+const getScreenSpoofTone = (risk) => {
+  if (risk === 'High') {
+    return {
+      label: 'Possible Screen Replay',
+      color: '#b91c1c',
+      background: 'rgba(239,68,68,0.12)',
+      border: 'rgba(239,68,68,0.28)',
+    };
+  }
+  if (risk === 'Medium') {
+    return {
+      label: 'Needs Manual Check',
+      color: '#b45309',
+      background: 'rgba(245,158,11,0.14)',
+      border: 'rgba(245,158,11,0.28)',
+    };
+  }
+  return {
+    label: 'No screen replay signal detected',
+    color: '#15803d',
+    background: 'rgba(34,197,94,0.12)',
+    border: 'rgba(34,197,94,0.24)',
+  };
+};
+
+const formatSpoofSignal = (signal) => {
+  const labels = {
+    possibleScreenReflection: 'Possible screen reflection',
+    possibleMoirePattern: 'Possible moire or display pattern',
+    possibleFlatImageReplay: 'Possible flat image replay',
+    challengeNotCompleted: 'Challenge not completed',
+    singleFrameOnly: 'Single frame only',
+    lowContextCapture: 'Low context capture',
+    possibleDuplicateFrame: 'Possible duplicate frame',
+    'No screen replay signal detected': 'No screen replay signal detected',
+  };
+  return labels[signal] || String(signal).replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
+};
+
 function EvidenceMeta({ label, value }) {
   return (
     <div style={{
@@ -165,6 +214,9 @@ function GeoTaggedEvidencePanel({ evidenceImages = [] }) {
           const hasMapsLink = hasEvidenceCoordinates(geoTag);
           const mapsUrl = hasMapsLink ? `https://www.google.com/maps?q=${geoTag.lat},${geoTag.lng}` : null;
           const isLive = evidence.evidenceType === 'LIVE_GEO_TAGGED';
+          const authenticity = evidence.authenticity || null;
+          const authenticityTone = getAuthenticityTone(authenticity?.status);
+          const screenSpoofTone = getScreenSpoofTone(authenticity?.screenSpoofRisk);
 
           return (
             <div key={evidence.publicId || `${imageUrl}-${index}`} style={{
@@ -207,6 +259,36 @@ function GeoTaggedEvidencePanel({ evidenceImages = [] }) {
                       Live capture verified
                     </span>
                   )}
+                  {authenticity?.status && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '0.25rem 0.55rem',
+                      borderRadius: '999px',
+                      border: `1px solid ${authenticityTone.border}`,
+                      background: authenticityTone.background,
+                      color: authenticityTone.color,
+                      fontSize: '0.6875rem',
+                      fontWeight: 900
+                    }}>
+                      {authenticity.status}
+                    </span>
+                  )}
+                  {authenticity?.screenSpoofRisk && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '0.25rem 0.55rem',
+                      borderRadius: '999px',
+                      border: `1px solid ${screenSpoofTone.border}`,
+                      background: screenSpoofTone.background,
+                      color: screenSpoofTone.color,
+                      fontSize: '0.6875rem',
+                      fontWeight: 900
+                    }}>
+                      {screenSpoofTone.label}
+                    </span>
+                  )}
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
@@ -220,6 +302,86 @@ function GeoTaggedEvidencePanel({ evidenceImages = [] }) {
                   <div style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
                     {geoTag.landmark && <p><strong style={{ color: 'var(--on-surface)' }}>Landmark:</strong> {geoTag.landmark}</p>}
                     {geoTag.address && <p><strong style={{ color: 'var(--on-surface)' }}>Address:</strong> {geoTag.address}</p>}
+                  </div>
+                )}
+
+                {authenticity && (
+                  <div style={{
+                    padding: '1rem',
+                    background: 'rgba(255,255,255,0.78)',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1px solid ${authenticityTone.border}`
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                      <div>
+                        <p style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Evidence Authenticity</p>
+                        <p style={{ fontSize: '1.5rem', fontWeight: 900, color: authenticityTone.color, lineHeight: 1 }}>{authenticity.score ?? 'N/A'}%</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--on-surface-variant)', fontWeight: 700 }}>Risk Level</p>
+                        <p style={{ fontSize: '0.875rem', fontWeight: 800, color: authenticityTone.color, textTransform: 'capitalize' }}>{authenticity.riskLevel || 'Not reported'}</p>
+                      </div>
+                    </div>
+
+                    {authenticity.challengePrompt && (
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginBottom: '0.75rem', lineHeight: 1.45 }}>
+                        <strong style={{ color: 'var(--on-surface)' }}>Challenge:</strong> {authenticity.challengePrompt}
+                      </p>
+                    )}
+
+                    {authenticity.screenSpoofRisk && (
+                      <div style={{
+                        padding: '0.75rem',
+                        background: screenSpoofTone.background,
+                        border: `1px solid ${screenSpoofTone.border}`,
+                        borderRadius: 'var(--radius-sm)',
+                        marginBottom: '0.75rem'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                          <p style={{ fontSize: '0.75rem', fontWeight: 900, color: screenSpoofTone.color }}>
+                            Screen Spoof Risk: {authenticity.screenSpoofRisk}
+                          </p>
+                          <p style={{ fontSize: '0.75rem', fontWeight: 800, color: screenSpoofTone.color }}>
+                            Spoof Score: {authenticity.spoofScore ?? 0}
+                          </p>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>{screenSpoofTone.label}</p>
+                        {(authenticity.spoofSignals || []).length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                            {authenticity.spoofSignals.map((signal) => (
+                              <span key={signal} style={{ fontSize: '0.6875rem', fontWeight: 800, color: screenSpoofTone.color, background: 'rgba(255,255,255,0.72)', border: `1px solid ${screenSpoofTone.border}`, borderRadius: '999px', padding: '0.2rem 0.45rem' }}>
+                                {formatSpoofSignal(signal)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '0.75rem' }}>
+                      <div>
+                        <p style={{ fontSize: '0.6875rem', fontWeight: 900, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.4rem' }}>Signals</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          {(authenticity.signals || []).map((signal) => (
+                            <span key={signal} style={{ display: 'flex', gap: '0.35rem', alignItems: 'flex-start', fontSize: '0.75rem', color: '#0f766e', lineHeight: 1.35 }}>
+                              <CheckCircle size={13} style={{ flexShrink: 0, marginTop: '0.05rem' }} />
+                              {signal}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '0.6875rem', fontWeight: 900, textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '0.4rem' }}>Warnings</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          {(authenticity.warnings || []).map((warning) => (
+                            <span key={warning} style={{ display: 'flex', gap: '0.35rem', alignItems: 'flex-start', fontSize: '0.75rem', color: '#9a5f00', lineHeight: 1.35 }}>
+                              <AlertCircle size={13} style={{ flexShrink: 0, marginTop: '0.05rem' }} />
+                              {warning}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
