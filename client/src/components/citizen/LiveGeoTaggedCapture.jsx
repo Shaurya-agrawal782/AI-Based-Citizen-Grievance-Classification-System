@@ -68,8 +68,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
   const [facingMode, setFacingMode] = useState('environment');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const backCameraInputRef = useRef(null);
-  const frontCameraInputRef = useRef(null);
+  const phoneCameraInputRef = useRef(null);
   const lastNativeInputRef = useRef(null);
 
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
@@ -78,7 +77,10 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     && window.location.protocol !== 'https:'
     && !isLocalHost;
   const isLikelyMobile = typeof navigator !== 'undefined'
-    && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    && (
+      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+      || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+    );
   const canUseLivePreview = typeof navigator !== 'undefined'
     && Boolean(navigator.mediaDevices?.getUserMedia);
 
@@ -392,6 +394,16 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     }
   };
 
+  const handlePrimaryCameraClick = () => {
+    if (isLikelyMobile) {
+      openNativeCapture(phoneCameraInputRef, 'environment');
+      return;
+    }
+
+    lastNativeInputRef.current = null;
+    startCamera(facingMode);
+  };
+
   const handleFileCapture = (event) => {
     const input = event.target;
     const file = input.files?.[0];
@@ -455,6 +467,11 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
       setCameraError('Camera could not be opened. Please check browser camera permission and try again.');
       setStatus('camera-error');
     }
+  };
+
+  const handleFlipCamera = () => {
+    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+    startCamera(nextMode);
   };
 
   const captureFrame = () => {
@@ -549,7 +566,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     onEvidenceChange?.(null);
     if (nativeInputRef) {
       setStatus('idle');
-      openNativeCapture(nativeInputRef, nativeInputRef === frontCameraInputRef ? 'user' : 'environment');
+      openNativeCapture(nativeInputRef, 'environment');
       return;
     }
     startCamera(facingMode);
@@ -585,11 +602,6 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     }
   };
 
-  const handleCameraModeChange = (mode) => {
-    if (mode === facingMode && status === 'camera') return;
-    startCamera(mode);
-  };
-
   const handleRefreshEvidenceGps = () => {
     if (!evidence?.file || !evidence?.previewUrl) return;
     requestGPS(evidence.file, evidence.previewUrl, { refreshExisting: true });
@@ -605,19 +617,10 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       <input
-        ref={backCameraInputRef}
+        ref={phoneCameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
-        className="hidden"
-        onChange={handleFileCapture}
-        style={{ display: 'none' }}
-      />
-      <input
-        ref={frontCameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="user"
         className="hidden"
         onChange={handleFileCapture}
         style={{ display: 'none' }}
@@ -635,48 +638,24 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
             <div style={nativeCaptureButtonRowStyle}>
               <button
                 type="button"
-                id="liveGeoBackCameraBtn"
+                id="liveGeoCameraBtn"
                 className="btn btn-primary btn-sm"
-                onClick={() => openNativeCapture(backCameraInputRef, 'environment')}
-                style={nativeCaptureButtonStyle}
+                onClick={handlePrimaryCameraClick}
+                disabled={!isLikelyMobile && !canUseLivePreview}
+                style={{ ...nativeCaptureButtonStyle, opacity: !isLikelyMobile && !canUseLivePreview ? 0.55 : 1 }}
               >
                 <Camera size={14} />
-                Back Camera
-              </button>
-              <button
-                type="button"
-                id="liveGeoFrontCameraBtn"
-                className="btn btn-secondary btn-sm"
-                onClick={() => openNativeCapture(frontCameraInputRef, 'user')}
-                style={nativeCaptureButtonStyle}
-              >
-                <Camera size={14} />
-                Front Camera
+                Camera
               </button>
             </div>
             <p style={mobileCaptureHelperStyle}>
-              On mobile, camera opens through your browser. Please allow camera and location permission.
+              On mobile, camera opens through your browser. On laptop, a live camera preview opens. Please allow camera and location permission.
             </p>
             {cameraError && (
               <div style={idleCameraErrorStyle}>
                 <AlertCircle size={13} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
                 <span>{cameraError}</span>
               </div>
-            )}
-            {canUseLivePreview && !isLikelyMobile && (
-              <button
-                type="button"
-                id="liveGeoDesktopPreviewBtn"
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  lastNativeInputRef.current = null;
-                  startCamera(facingMode);
-                }}
-                style={desktopPreviewButtonStyle}
-              >
-                <Video size={14} />
-                Desktop Live Preview
-              </button>
             )}
           </motion.div>
         )}
@@ -729,26 +708,15 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
                 <Video size={13} />
                 LIVE CAMERA
               </div>
-              <div style={cameraModeToggleStyle}>
-                <button
-                  type="button"
-                  aria-pressed={facingMode === 'environment'}
-                  title="Use back camera"
-                  onClick={() => handleCameraModeChange('environment')}
-                  style={cameraModeButtonStyle(facingMode === 'environment')}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={facingMode === 'user'}
-                  title="Use front camera"
-                  onClick={() => handleCameraModeChange('user')}
-                  style={cameraModeButtonStyle(facingMode === 'user')}
-                >
-                  Front
-                </button>
-              </div>
+              <button
+                type="button"
+                title="Flip camera"
+                onClick={handleFlipCamera}
+                style={cameraFlipButtonStyle}
+              >
+                <RefreshCw size={13} />
+                Flip
+              </button>
             </div>
 
             {cameraError && (
@@ -993,7 +961,7 @@ const nativeCapturePanelStyle = {
 
 const nativeCaptureButtonRowStyle = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 8rem), 1fr))',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   gap: '0.5rem'
 };
 
@@ -1009,12 +977,6 @@ const mobileCaptureHelperStyle = {
   fontSize: '0.75rem',
   color: 'var(--on-surface-variant)',
   lineHeight: 1.45
-};
-
-const desktopPreviewButtonStyle = {
-  width: 'fit-content',
-  paddingInline: '0.25rem',
-  color: 'var(--primary)'
 };
 
 const cameraPendingOverlayStyle = {
@@ -1033,31 +995,26 @@ const cameraPendingOverlayStyle = {
   pointerEvents: 'none'
 };
 
-const cameraModeToggleStyle = {
+const cameraFlipButtonStyle = {
   position: 'absolute',
   top: '0.65rem',
   right: '0.65rem',
-  zIndex: 3,
+  zIndex: 4,
   display: 'inline-flex',
-  gap: '0.25rem',
-  padding: '0.25rem',
-  borderRadius: '999px',
-  background: 'rgba(15,23,42,0.72)',
-  border: '1px solid rgba(255,255,255,0.18)'
-};
-
-const cameraModeButtonStyle = (isActive) => ({
-  minWidth: '3.25rem',
-  height: '1.75rem',
-  border: 0,
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.35rem',
+  minWidth: '4.25rem',
+  height: '1.9rem',
+  border: '1px solid rgba(255,255,255,0.22)',
   borderRadius: '999px',
   padding: '0 0.65rem',
-  background: isActive ? 'white' : 'transparent',
-  color: isActive ? '#0f172a' : 'rgba(255,255,255,0.82)',
+  background: 'rgba(15,23,42,0.72)',
+  color: 'white',
   fontSize: '0.72rem',
   fontWeight: 800,
   cursor: 'pointer'
-});
+};
 
 const inlineCameraErrorStyle = {
   display: 'flex',
