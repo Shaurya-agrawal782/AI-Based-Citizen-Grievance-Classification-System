@@ -578,14 +578,20 @@ export default function NewGrievance() {
       if (!window.confirm(warning)) return;
     }
 
-    if (hasLiveEvidence && Number(liveEvidence?.authenticity?.score) < 50) {
-      const continueWithReview = window.confirm('This evidence may need manual verification. Continue submitting?');
-      if (!continueWithReview) return;
-    }
+    const evidenceNeedsManualReview = hasLiveEvidence && (
+      Number(liveEvidence?.authenticity?.score) < 65
+      || liveEvidence?.authenticity?.status === 'Needs Manual Verification'
+      || liveEvidence?.authenticity?.status === 'Suspicious Evidence'
+      || liveEvidence?.authenticity?.screenSpoofRisk === 'Medium'
+      || liveEvidence?.authenticity?.screenSpoofRisk === 'High'
+    );
 
     if (hasLiveEvidence && liveEvidence?.authenticity?.screenSpoofRisk === 'High') {
       const continueWithSpoofRisk = window.confirm('Possible screen/photo replay detected. This evidence may need manual verification. Continue submitting?');
       if (!continueWithSpoofRisk) return;
+    } else if (evidenceNeedsManualReview) {
+      const continueWithReview = window.confirm('This evidence may need manual verification. Continue submitting?');
+      if (!continueWithReview) return;
     }
 
     setLoading(true);
@@ -1308,7 +1314,7 @@ export default function NewGrievance() {
                       <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0.25rem' }}>{t('grievance.liveEvidence')}</h3>
                       <p style={{ fontSize: '0.875rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>{text('deep.captureAFreshPh', "Capture a fresh photo from the complaint location. CivicTrust will attach GPS coordinates and timestamp for verification.")}</p>
                       <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem', lineHeight: 1.45 }}>Evidence capture will request fresh GPS. If GPS is denied, keep the photo and enter a landmark manually.</p>
-                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem', lineHeight: 1.45 }}>To reduce fake or reused evidence, CivicTrust checks live capture, GPS, timestamp, random challenge completion, and evidence consistency. This does not guarantee 100% deepfake detection, but helps officers identify suspicious evidence.</p>
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--on-surface-variant)', marginTop: '0.35rem', lineHeight: 1.45 }}>CivicTrust does not claim 100% fake image detection. It flags suspicious evidence using live challenge, GPS, timestamp, multi-frame comparison and screen replay risk signals.</p>
                       <p style={{ fontSize: '0.8125rem', color: 'var(--primary)', marginTop: '0.35rem', fontWeight: 700 }}>{text('deep.liveGeoTaggedCa', "Live geo-tagged capture is recommended for evidence verification.")}</p>
                     </div>
                     <LiveGeoTaggedCapture
@@ -1371,6 +1377,15 @@ export default function NewGrievance() {
                             <p style={{ fontSize: '0.8125rem', color: liveEvidence.authenticity.screenSpoofRisk === 'High' ? 'var(--error)' : liveEvidence.authenticity.screenSpoofRisk === 'Medium' ? '#b45309' : 'var(--success)', marginTop: '0.25rem', fontWeight: 700 }}>
                               Screen Spoof Risk: {liveEvidence.authenticity.screenSpoofRisk}
                             </p>
+                          )}
+                          {liveEvidence.authenticity?.warnings?.length > 0 && (
+                            <div style={{ marginTop: '0.5rem', display: 'grid', gap: '0.25rem' }}>
+                              {liveEvidence.authenticity.warnings.slice(0, 4).map((warning) => (
+                                <p key={warning} style={{ fontSize: '0.75rem', color: '#9a5f00', lineHeight: 1.35 }}>
+                                  {warning}
+                                </p>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>

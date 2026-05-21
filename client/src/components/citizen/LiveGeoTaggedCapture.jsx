@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, Camera, CheckCircle, Loader2, Navigation, RefreshCw, Shield, Trash2, Video, X } from 'lucide-react';
 import { reverseGeocode } from '../../utils/locationHelper';
 import { cleanDisplayAddress } from '../../utils/cleanAddress';
-import { buildEvidenceFingerprintBundle, calculateEvidenceAuthenticity, detectScreenSpoofRisk } from '../../utils/evidenceAuthenticity';
+import { buildEvidenceFingerprintBundle, calculateEvidenceAuthenticity, detectScreenReplayRisk } from '../../utils/evidenceAuthenticity';
 
 const GPS_OPTIONS = {
   enableHighAccuracy: true,
@@ -14,8 +14,8 @@ const GPS_OPTIONS = {
 const AUTHENTICITY_CHALLENGES = [
   'Capture the issue with surrounding road/building visible.',
   'Move camera slightly left and capture again.',
-  'Capture the issue from a wider angle.',
-  'Include a nearby landmark in the frame.'
+  'Include nearby landmark or signboard.',
+  'Capture a wider context photo.'
 ];
 
 const REQUIRED_CAPTURE_COUNT = 2;
@@ -363,11 +363,12 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     const captures = [...existingCaptures, capture].slice(0, MAX_CAPTURE_COUNT);
     const files = captures.map((item) => item.file).filter(Boolean);
     const challengeCompleted = captures.length >= REQUIRED_CAPTURE_COUNT;
-    const screenSpoofResult = options.screenSpoofResult || await detectScreenSpoofRisk({
+    const screenSpoofResult = options.screenSpoofResult || await detectScreenReplayRisk({
       imageFile: file,
       previewUrl,
-      evidenceFiles: files,
+      files,
       challengeCompleted,
+      geoTag,
     });
     const nextLandmark = landmark || evidence?.landmark || confirmedLocation?.landmark || '';
     const authenticity = buildAuthenticity(captures, geoTag, {
@@ -408,20 +409,28 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
     });
   }, [buildAuthenticity, confirmedLocation?.landmark, evidence, getActiveChallengePrompt, landmark, publishEvidence]);
 
-  const refreshEvidenceGeoTag = useCallback((geoTag) => {
+  const refreshEvidenceGeoTag = useCallback(async (geoTag) => {
     if (!evidence) return;
     const captures = evidence.captures || [{ file: evidence.file, previewUrl: evidence.previewUrl }];
     const files = captures.map((item) => item.file).filter(Boolean);
+    const challengeCompleted = evidence.challengeCompleted || captures.length >= REQUIRED_CAPTURE_COUNT;
+    const screenSpoofResult = await detectScreenReplayRisk({
+      files,
+      challengeCompleted,
+      geoTag,
+      imageFile: evidence.file,
+      previewUrl: evidence.previewUrl,
+    });
     const authenticity = buildAuthenticity(captures, geoTag, {
       challengePrompt: evidence.challengePrompt || challengePrompt,
-      challengeCompleted: evidence.challengeCompleted || captures.length >= REQUIRED_CAPTURE_COUNT,
+      challengeCompleted,
       usedLiveCamera: evidence.usedLiveCamera ?? true,
       duplicateRisk: evidence.duplicateRisk ?? false,
       aiRelevance: evidence.aiRelevance || 'Pending',
-      screenSpoofRisk: evidence.screenSpoofRisk || evidence.authenticity?.screenSpoofRisk || 'Low',
-      spoofScore: evidence.spoofScore || evidence.authenticity?.spoofScore || 0,
-      spoofSignals: evidence.spoofSignals || evidence.authenticity?.spoofSignals || [],
-      spoofWarnings: evidence.spoofWarnings || evidence.authenticity?.spoofWarnings || [],
+      screenSpoofRisk: screenSpoofResult.screenSpoofRisk,
+      spoofScore: screenSpoofResult.spoofScore,
+      spoofSignals: screenSpoofResult.signals,
+      spoofWarnings: screenSpoofResult.warnings,
     });
 
     publishEvidence({
@@ -431,6 +440,10 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
       geoTag,
       authenticity,
       evidenceFingerprint: buildEvidenceFingerprintBundle(files),
+      screenSpoofRisk: screenSpoofResult.screenSpoofRisk,
+      spoofScore: screenSpoofResult.spoofScore,
+      spoofSignals: screenSpoofResult.signals,
+      spoofWarnings: screenSpoofResult.warnings,
     }, 'preview', { useConfirmedLocation: false });
   }, [buildAuthenticity, challengePrompt, evidence, publishEvidence]);
 
@@ -496,7 +509,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
               confirmedByUser: true,
               landmark: nextLandmark,
             });
-            refreshEvidenceGeoTag(refreshedGeoTag);
+            await refreshEvidenceGeoTag(refreshedGeoTag);
             return;
           }
         }
@@ -510,7 +523,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
         }
 
         if (refreshExisting && evidence) {
-          refreshEvidenceGeoTag(refreshedGeoTag);
+          await refreshEvidenceGeoTag(refreshedGeoTag);
           return;
         }
 
@@ -785,8 +798,12 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
   const complaintAccuracyStatus = getAccuracyStatus(confirmedLocation?.accuracy);
   const captureCount = evidence?.captures?.length || 0;
   const captureProgressLabel = `Photo ${Math.min(captureCount + 1, REQUIRED_CAPTURE_COUNT)} of ${REQUIRED_CAPTURE_COUNT}`;
-  const nextCaptureLabel = captureCount < REQUIRED_CAPTURE_COUNT ? 'Capture Challenge Photo' : 'Capture Wider Context';
+  const nextCaptureLabel = captureCount < REQUIRED_CAPTURE_COUNT ? 'Capture Challenge Photo' : 'Capture Wider Scene';
   const canAddMoreCaptures = captureCount > 0 && captureCount < MAX_CAPTURE_COUNT;
+  const requiresManualReview = evidence?.authenticity?.status === 'Needs Manual Verification'
+    || evidence?.authenticity?.status === 'Suspicious Evidence'
+    || evidence?.authenticity?.screenSpoofRisk === 'High'
+    || evidence?.authenticity?.screenSpoofRisk === 'Medium';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -830,7 +847,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
               <p style={challengeEyebrowStyle}>Live Evidence Authenticity Check</p>
               <p style={challengePromptStyle}>{challengePrompt}</p>
               <p style={challengeTextStyle}>
-                CivicTrust uses live capture, GPS, timestamp, random challenge completion, and multiple frames to reduce reused or replayed evidence. This does not guarantee 100% deepfake detection.
+                CivicTrust does not claim 100% fake image detection. It flags suspicious evidence using live challenge, GPS, timestamp, multi-frame comparison and screen replay risk signals.
               </p>
             </div>
             {cameraError && (
@@ -1035,7 +1052,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
                     Photo {evidence.captures.length} of {REQUIRED_CAPTURE_COUNT}
                   </p>
                   {!evidence.challengeCompleted && (
-                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#9a5f00' }}>Challenge photo still recommended</span>
+                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#9a5f00' }}>Challenge photo required for verified evidence</span>
                   )}
                 </div>
                 <div style={captureThumbGridStyle}>
@@ -1096,7 +1113,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
               )}
               <button type="button" id="liveEvidenceRetakeBtn" onClick={handleRetake} className="btn btn-sm btn-outline">
                 <RefreshCw size={13} />
-                Retake Photo
+                Retake Evidence
               </button>
               <button type="button" id="liveEvidenceRefreshGpsBtn" onClick={handleRefreshEvidenceGps} className="btn btn-sm btn-outline">
                 <Navigation size={13} />
@@ -1104,7 +1121,7 @@ export default function LiveGeoTaggedCapture({ confirmedLocation, onEvidenceChan
               </button>
               <button type="button" id="liveEvidenceUseBtn" onClick={handleUse} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
                 <CheckCircle size={13} />
-                Use This Evidence
+                {requiresManualReview ? 'Continue with Manual Review' : 'Use This Evidence'}
               </button>
               <button type="button" id="liveEvidenceRemoveBtn" onClick={handleRemove} className="btn btn-sm btn-ghost" style={{ color: 'var(--error)' }}>
                 <Trash2 size={13} />
@@ -1168,7 +1185,7 @@ function AuthenticityCard({ authenticity }) {
           </div>
         </div>
         <div>
-          <p style={authenticityListTitleStyle}>Review Notes</p>
+          <p style={authenticityListTitleStyle}>Warnings</p>
           <div style={authenticityListStyle}>
             {(authenticity.warnings || []).map((warning) => (
               <span key={warning} style={authenticityWarningStyle}>
@@ -1207,7 +1224,7 @@ function ScreenSpoofRiskCard({
         <div>
           <p style={{ fontSize: '0.6875rem', fontWeight: 900, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Screen Spoof Risk</p>
           <p style={{ fontSize: '0.78rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem', lineHeight: 1.45 }}>
-            Checks glare, flatness, screen-like patterns, duplicate frames, and challenge completion.
+            Checks live challenge, GPS, timestamp, multi-frame similarity, and screen replay risk signals.
           </p>
         </div>
         <span style={{ ...screenRiskBadgeStyle, color: tone.color, borderColor: tone.border, background: tone.badgeBackground }}>
@@ -1246,7 +1263,7 @@ function ScreenSpoofRiskCard({
         <>
           <div style={screenSpoofHighWarningStyle}>
             <AlertCircle size={13} style={{ flexShrink: 0, marginTop: '0.1rem' }} />
-            <span>This evidence may be a photo of another screen or reused image. Please capture live scene again from a wider angle.</span>
+            <span>Possible phone-screen/photo replay detected. Please capture the real scene again with surrounding landmark.</span>
           </div>
           <div style={screenRiskActionRowStyle}>
             <button type="button" className="btn btn-sm btn-outline" onClick={onRetake}>
@@ -1493,6 +1510,11 @@ const formatSpoofSignal = (signal) => {
     singleFrameOnly: 'Single frame only',
     lowContextCapture: 'Low context capture',
     possibleDuplicateFrame: 'Possible duplicate frame',
+    gpsMissing: 'GPS metadata missing',
+    gpsAccuracyLow: 'GPS accuracy low or moderate',
+    similarFrames: 'Captured frames appear similar',
+    possibleScreenGlare: 'Possible screen glare',
+    canvasAnalysisUnavailable: 'Canvas analysis unavailable',
     'No screen replay signal detected': 'No screen replay signal detected',
   };
   return labels[signal] || String(signal).replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());

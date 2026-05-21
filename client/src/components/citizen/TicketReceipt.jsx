@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Copy, Check, Download, Share2 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useLanguage } from '../../context/LanguageContext';
 
 function CopyBtn({ text, label }) {
   const [copied, setCopied] = useState(false);
